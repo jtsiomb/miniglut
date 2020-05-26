@@ -81,8 +81,8 @@ enum {
 
 /* returned by glutGetModifiers */
 #define GLUT_ACTIVE_SHIFT	1
-#define GLUT_ACTIVE_CTRL	2
-#define GLUT_ACTIVE_ALT		4
+#define GLUT_ACTIVE_CTRL	4
+#define GLUT_ACTIVE_ALT		8
 
 typedef void (*glut_cb)(void);
 typedef void (*glut_cb_reshape)(int x, int y);
@@ -134,12 +134,15 @@ int glutGet(unsigned int s);
 int glutGetModifiers(void);
 int glutExtensionSupported(char *ext);
 
-void glutSolidSphere(float rad);
-void glutWireSphere(float rad);
+void glutSolidSphere(float rad, int slices, int stacks);
+void glutWireSphere(float rad, int slices, int stacks);
 void glutSolidCube(float sz);
 void glutWireCube(float sz);
-void glutSolidTorus(float inner_rad, float outer_rad, float sides, float rings);
-void glutWireTorus(float inner_rad, float outer_rad, float sides, float rings);
+void glutSolidCone(float base, float height, int slices, int stacks);
+void glutWireCone(float base, float height, int slices, int stacks);
+void glutSolidCylinder(float rad, float height, int slices, int stacks);
+void glutSolidTorus(float inner_rad, float outer_rad, int sides, int rings);
+void glutWireTorus(float inner_rad, float outer_rad, int sides, int rings);
 void glutSolidTeapot(float size);
 void glutWireTeapot(float size);
 

@@ -16,8 +16,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #ifdef MINIGLUT_USE_LIBC
+#define _GNU_SOURCE
 #include <stdlib.h>
+#include <math.h>
 #endif
+
+#define PI	3.1415926536f
 
 #if defined(__unix__)
 
@@ -375,28 +379,189 @@ int glutExtensionSupported(char *ext)
 }
 
 /* TODO */
-void glutSolidSphere(float rad)
+void glutSolidSphere(float rad, int slices, int stacks)
 {
+	int i, j, k, gray;
+	float x, y, z, s, t, u, v, phi, theta, sintheta, costheta, sinphi, cosphi;
+	float du = 1.0f / (float)slices;
+	float dv = 1.0f / (float)stacks;
+
+	glBegin(GL_QUADS);
+	for(i=0; i<stacks; i++) {
+		v = i * dv;
+		for(j=0; j<slices; j++) {
+			u = j * du;
+			for(k=0; k<4; k++) {
+				gray = k ^ (k >> 1);
+				s = gray & 1 ? u + du : u;
+				t = gray & 2 ? v + dv : v;
+				theta = s * PI * 2.0f;
+				phi = t * PI;
+				sincosf(theta, &sintheta, &costheta);
+				sincosf(phi, &sinphi, &cosphi);
+				x = sintheta * sinphi;
+				y = costheta * sinphi;
+				z = cosphi;
+
+				glColor3f(s, t, 1);
+				glTexCoord2f(s, t);
+				glNormal3f(x, y, z);
+				glVertex3f(x * rad, y * rad, z * rad);
+			}
+		}
+	}
+	glEnd();
 }
 
-void glutWireSphere(float rad)
+void glutWireSphere(float rad, int slices, int stacks)
 {
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidSphere(rad, slices, stacks);
+	glPopAttrib();
 }
 
 void glutSolidCube(float sz)
 {
+	int i, j, idx, gray, flip, rotx;
+	float vpos[3], norm[3];
+	float rad = sz * 0.5f;
+
+	glBegin(GL_QUADS);
+	for(i=0; i<6; i++) {
+		flip = i & 1;
+		rotx = i >> 2;
+		idx = (~i & 2) - rotx;
+		norm[0] = norm[1] = norm[2] = 0.0f;
+		norm[idx] = flip ^ ((i >> 1) & 1) ? -1 : 1;
+		glNormal3fv(norm);
+		vpos[idx] = norm[idx] * rad;
+		for(j=0; j<4; j++) {
+			gray = j ^ (j >> 1);
+			vpos[i & 2] = (gray ^ flip) & 1 ? rad : -rad;
+			vpos[rotx + 1] = (gray ^ (rotx << 1)) & 2 ? rad : -rad;
+			glTexCoord2f(gray & 1, gray >> 1);
+			glVertex3fv(vpos);
+		}
+	}
+	glEnd();
 }
 
 void glutWireCube(float sz)
 {
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidCube(sz);
+	glPopAttrib();
 }
 
-void glutSolidTorus(float inner_rad, float outer_rad, float sides, float rings)
+static void draw_cylinder(float rbot, float rtop, float height, int slices, int stacks)
 {
+	int i, j, k, gray;
+	float x, y, z, s, t, u, v, theta, phi, sintheta, costheta, sinphi, cosphi, rad;
+	float du = 1.0f / (float)slices;
+	float dv = 1.0f / (float)stacks;
+
+	phi = atan(fabs(rbot - rtop) / height);
+	sincosf(phi, &sinphi, &cosphi);
+
+	glBegin(GL_QUADS);
+	for(i=0; i<stacks; i++) {
+		v = i * dv;
+		for(j=0; j<slices; j++) {
+			u = j * du;
+			for(k=0; k<4; k++) {
+				gray = k ^ (k >> 1);
+				s = gray & 2 ? u + du : u;
+				t = gray & 1 ? v + dv : v;
+				rad = rbot + (rtop - rbot) * t;
+				theta = s * PI * 2.0f;
+				sincosf(theta, &sintheta, &costheta);
+
+				x = sintheta * cosphi;
+				y = costheta * cosphi;
+				z = sinphi;
+
+				glColor3f(s, t, 1);
+				glTexCoord2f(s, t);
+				glNormal3f(x, y, z);
+				glVertex3f(sintheta * rad, costheta * rad, t * height);
+			}
+		}
+	}
+	glEnd();
 }
 
-void glutWireTorus(float inner_rad, float outer_rad, float sides, float rings)
+void glutSolidCone(float base, float height, int slices, int stacks)
 {
+	draw_cylinder(base, 0, height, slices, stacks);
+}
+
+void glutWireCone(float base, float height, int slices, int stacks)
+{
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidCone(base, height, slices, stacks);
+	glPopAttrib();
+}
+
+void glutSolidCylinder(float rad, float height, int slices, int stacks)
+{
+	draw_cylinder(rad, rad, height, slices, stacks);
+}
+
+void glutWireCylinder(float rad, float height, int slices, int stacks)
+{
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidCylinder(rad, height, slices, stacks);
+	glPopAttrib();
+}
+
+void glutSolidTorus(float inner_rad, float outer_rad, int sides, int rings)
+{
+	int i, j, k, gray;
+	float x, y, z, s, t, u, v, phi, theta, sintheta, costheta, sinphi, cosphi;
+	float du = 1.0f / (float)rings;
+	float dv = 1.0f / (float)sides;
+
+	glBegin(GL_QUADS);
+	for(i=0; i<rings; i++) {
+		u = i * du;
+		for(j=0; j<sides; j++) {
+			v = j * dv;
+			for(k=0; k<4; k++) {
+				gray = k ^ (k >> 1);
+				s = gray & 1 ? u + du : u;
+				t = gray & 2 ? v + dv : v;
+				theta = s * PI * 2.0f;
+				phi = t * PI * 2.0f;
+				sincosf(theta, &sintheta, &costheta);
+				sincosf(phi, &sinphi, &cosphi);
+				x = sintheta * sinphi;
+				y = costheta * sinphi;
+				z = cosphi;
+
+				glColor3f(s, t, 1);
+				glTexCoord2f(s, t);
+				glNormal3f(x, y, z);
+
+				x = x * inner_rad + sintheta * outer_rad;
+				y = y * inner_rad + costheta * outer_rad;
+				z *= inner_rad;
+				glVertex3f(x, y, z);
+			}
+		}
+	}
+	glEnd();
+}
+
+void glutWireTorus(float inner_rad, float outer_rad, int sides, int rings)
+{
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidTorus(inner_rad, outer_rad, sides, rings);
+	glPopAttrib();
 }
 
 void glutSolidTeapot(float size)

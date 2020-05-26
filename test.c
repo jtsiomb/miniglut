@@ -47,6 +47,18 @@ void display(void)
 	glLightfv(GL_LIGHT0, GL_POSITION, lpos);
 
 	glutSolidTorus(0.3, 1, 16, 24);
+	glutSolidSphere(0.4, 16, 8);
+
+	glPushMatrix();
+	glTranslatef(-2.5, 0, 0);
+	glutSolidCube(1.5);
+	glPopMatrix();
+
+	glPushMatrix();
+	glTranslatef(2.5, -1, 0);
+	glRotatef(-90, 1, 0, 0);
+	glutSolidCone(1.1, 2, 16, 2);
+	glPopMatrix();
 
 	glBegin(GL_QUADS);
 	glNormal3f(0, 1, 0);
