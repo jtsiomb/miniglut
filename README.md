@@ -21,6 +21,17 @@ you decide to statically link, at which point you need to deal with the whole
 instead of dropping it in your code, it still won't present any MSVC runtime
 compatibility issues, since it doesn't call any C library functions whatsoever.
 
+Download
+--------
+Latest release (v0.1):
+  - https://github.com/jtsiomb/miniglut/releases/download/v0.1/miniglut-0.1.tar.gz
+  - https://github.com/jtsiomb/miniglut/releases/download/v0.1/miniglut-0.1.zip
+
+Both archives are identical, choose whichever is more convenient.
+
+Source repository (git):
+  - https://github.com/jtsiomb/miniglut
+
 Build
 -----
 Under X11 MiniGLUT depends only on Xlib and OpenGL. Therefore to build a program
