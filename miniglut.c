@@ -87,7 +87,7 @@ static void sys_exit(int status);
 static int sys_write(int fd, const void *buf, int count);
 
 
-static int init_x, init_y, init_width = 256, init_height = 256;
+static int init_x = -1, init_y, init_width = 256, init_height = 256;
 static unsigned int init_mode;
 
 static struct ctx_info ctx_info;
@@ -139,6 +139,12 @@ void glutInit(int *argc, char **argv)
 	wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
 	if(!RegisterClassEx(&wc)) {
 		panic("Failed to register \"MiniGLUT\" window class\n");
+	}
+
+	if(init_x == -1) {
+		get_screen_size(&init_x, &init_y);
+		init_x >>= 3;
+		init_y >>= 3;
 	}
 #endif
 }
@@ -1043,9 +1049,16 @@ static void create_window(const char *title)
 {
 	int pixfmt;
 	PIXELFORMATDESCRIPTOR pfd = {0};
+	RECT rect;
 
-	if(!(win = CreateWindow("MiniGLUT", title, WS_OVERLAPPEDWINDOW, init_x, init_y,
-				init_width, init_height, 0, 0, hinst, 0))) {
+	rect.left = init_x;
+	rect.top = init_y;
+	rect.right = init_x + init_width;
+	rect.bottom = init_y + init_height;
+	AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, 0);
+
+	if(!(win = CreateWindow("MiniGLUT", title, WS_OVERLAPPEDWINDOW, rect.left, rect.top,
+				rect.right - rect.left, rect.bottom - rect.top, 0, 0, hinst, 0))) {
 		panic("Failed to create window\n");
 	}
 	dc = GetDC(win);

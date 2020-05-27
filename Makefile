@@ -2,7 +2,7 @@ src = miniglut.c test.c
 obj = $(src:.c=.o)
 bin = test
 
-CFLAGS = -pedantic -Wall -g
+CFLAGS = -pedantic -Wall -O3
 
 sys ?= $(shell uname -s | sed 's/MINGW.*/mingw/')
 ifeq ($(sys), mingw)
