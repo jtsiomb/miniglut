@@ -15,10 +15,22 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+/*#define MINIGLUT_GCC_NO_BUILTIN*/
+
 #ifdef MINIGLUT_USE_LIBC
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <math.h>
+#else
+
+#if defined(__GNUC__) && !defined(MINIGLUT_GCC_NO_BUILTIN)
+#define mglut_sincosf(a, s, c)	__builtin_sincosf(a, s, c)
+#define mglut_atan(x)			__builtin_atan(x)
+#else
+static void mglut_sincosf(float angle, float *sptr, float *cptr);
+static float mglut_atan(float x);
+#endif
+
 #endif
 
 #define PI	3.1415926536f
@@ -397,8 +409,8 @@ void glutSolidSphere(float rad, int slices, int stacks)
 				t = gray & 2 ? v + dv : v;
 				theta = s * PI * 2.0f;
 				phi = t * PI;
-				sincosf(theta, &sintheta, &costheta);
-				sincosf(phi, &sinphi, &cosphi);
+				mglut_sincosf(theta, &sintheta, &costheta);
+				mglut_sincosf(phi, &sinphi, &cosphi);
 				x = sintheta * sinphi;
 				y = costheta * sinphi;
 				z = cosphi;
@@ -462,8 +474,9 @@ static void draw_cylinder(float rbot, float rtop, float height, int slices, int 
 	float du = 1.0f / (float)slices;
 	float dv = 1.0f / (float)stacks;
 
-	phi = atan(fabs(rbot - rtop) / height);
-	sincosf(phi, &sinphi, &cosphi);
+	rad = rbot - rtop;
+	phi = mglut_atan((rad < 0 ? -rad : rad) / height);
+	mglut_sincosf(phi, &sinphi, &cosphi);
 
 	glBegin(GL_QUADS);
 	for(i=0; i<stacks; i++) {
@@ -476,7 +489,7 @@ static void draw_cylinder(float rbot, float rtop, float height, int slices, int 
 				t = gray & 1 ? v + dv : v;
 				rad = rbot + (rtop - rbot) * t;
 				theta = s * PI * 2.0f;
-				sincosf(theta, &sintheta, &costheta);
+				mglut_sincosf(theta, &sintheta, &costheta);
 
 				x = sintheta * cosphi;
 				y = costheta * cosphi;
@@ -536,8 +549,8 @@ void glutSolidTorus(float inner_rad, float outer_rad, int sides, int rings)
 				t = gray & 2 ? v + dv : v;
 				theta = s * PI * 2.0f;
 				phi = t * PI * 2.0f;
-				sincosf(theta, &sintheta, &costheta);
-				sincosf(phi, &sinphi, &cosphi);
+				mglut_sincosf(theta, &sintheta, &costheta);
+				mglut_sincosf(phi, &sinphi, &cosphi);
 				x = sintheta * sinphi;
 				y = costheta * sinphi;
 				z = cosphi;
@@ -954,7 +967,79 @@ static int sys_write(int fd, const void *buf, int count)
 {
 	return write(fd, buf, count);
 }
+
 #else	/* !MINIGLUT_USE_LIBC */
+
+#if defined(__GNUC__) && defined(MINIGLUT_GCC_NO_BUILTIN)
+static void mglut_sincosf(float angle, float *sptr, float *cptr)
+{
+	asm volatile(
+		"flds %2\n\t"
+		"fsincos\n\t"
+		"fstps %1\n\t"
+		"fstps %0\n\t"
+		: "=m"(*sptr), "=m"(*cptr)
+		: "m"(angle)
+	);
+}
+
+static float mglut_atan(float x)
+{
+	float res;
+	asm volatile(
+		"flds %1\n\t"
+		"fld1\n\t"
+		"fpatan\n\t"
+		"fstps %0\n\t"
+		: "=m"(res)
+		: "m"(x)
+	);
+	return res;
+}
+#endif
+
+#ifdef _MSC_VER
+static void mglut_sincosf(float angle, float *sptr, float *cptr)
+{
+	float s, c;
+	__asm {
+		fld angle
+		fsincos
+		fstp c
+		fstp s
+	}
+	*sptr = s;
+	*cptr = c;
+}
+
+static float mglut_atan(float x)
+{
+	float res;
+	__asm {
+		fld x
+		fld1
+		fpatan
+		fstp res
+	}
+	return res;
+}
+#endif
+
+#ifdef __WATCOMC__
+#pragma aux mglut_sincosf = \
+	"fsincos" \
+	"fstp dword ptr [edx]" \
+	"fstp dword ptr [eax]" \
+	parm[8087][eax][edx]	\
+	modify[8087];
+
+#pragma aux mglut_atan = \
+	"fld1" \
+	"fpatan" \
+	parm[8087] \
+	value[8087] \
+	modify [8087];
+#endif
 
 #ifdef __linux__
 
