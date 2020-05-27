@@ -21,6 +21,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>
+
+#ifdef _MSC_VER
+#pragma comment (lib, "opengl32")
+#pragma comment (lib, "winmm")
+#endif	/* MSVC */
+
 #endif
 #include <GL/gl.h>
 

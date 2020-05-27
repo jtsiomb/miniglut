@@ -62,6 +62,9 @@ static unsigned int evmask;
 #include <windows.h>
 #define BUILD_WIN32
 
+static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam, LPARAM lparam);
+
+static HINSTANCE hinst;
 static HWND win;
 static HDC dc;
 static HGLRC ctx;
@@ -129,6 +132,23 @@ void glutInit(int *argc, char **argv)
 	xa_wm_del_win = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
 
 	evmask = ExposureMask | StructureNotifyMask;
+#endif
+#ifdef BUILD_WIN32
+	WNDCLASSEX wc = {0};
+
+	hinst = GetModuleHandle(0);
+
+	wc.cbSize = sizeof wc;
+	wc.hbrBackground = GetStockObject(BLACK_BRUSH);
+	wc.hCursor = LoadCursor(0, IDC_ARROW);
+	wc.hIcon = wc.hIconSm = LoadIcon(0, IDI_APPLICATION);
+	wc.hInstance = hinst;
+	wc.lpfnWndProc = handle_message;
+	wc.lpszClassName = "MiniGLUT";
+	wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+	if(!RegisterClassEx(&wc)) {
+		panic("Failed to register \"MiniGLUT\" window class\n");
+	}
 #endif
 }
 
@@ -586,6 +606,8 @@ void glutWireTeapot(float size)
 }
 
 
+
+/* --------------- UNIX/X11 implementation ----------------- */
 #ifdef BUILD_X11
 static void handle_event(XEvent *ev);
 
@@ -597,26 +619,24 @@ void glutMainLoopEvent(void)
 		panic("display callback not set");
 	}
 
-	for(;;) {
-		if(!upd_pending && !cb_idle) {
-			XNextEvent(dpy, &ev);
-			handle_event(&ev);
-			if(quit) return;
-		}
-		while(XPending(dpy)) {
-			XNextEvent(dpy, &ev);
-			handle_event(&ev);
-			if(quit) return;
-		}
+	if(!upd_pending && !cb_idle) {
+		XNextEvent(dpy, &ev);
+		handle_event(&ev);
+		if(quit) return;
+	}
+	while(XPending(dpy)) {
+		XNextEvent(dpy, &ev);
+		handle_event(&ev);
+		if(quit) return;
+	}
 
-		if(cb_idle) {
-			cb_idle();
-		}
+	if(cb_idle) {
+		cb_idle();
+	}
 
-		if(upd_pending && mapped) {
-			upd_pending = 0;
-			cb_display();
-		}
+	if(upd_pending && mapped) {
+		upd_pending = 0;
+		cb_display();
 	}
 }
 
@@ -917,7 +937,316 @@ static void get_screen_size(int *scrw, int *scrh)
 	*scrw = wattr.width;
 	*scrh = wattr.height;
 }
-#endif
+#endif	/* BUILD_X11 */
+
+
+/* --------------- windows implementation ----------------- */
+#ifdef BUILD_WIN32
+static void update_modkeys(void);
+static int translate_vkey(int vkey);
+static void handle_mbutton(int bn, int st, WPARAM wparam, LPARAM lparam);
+
+void glutMainLoopEvent(void)
+{
+	MSG msg;
+	
+	if(!cb_display) {
+		panic("display callback not set");
+	}
+
+	if(reshape_pending && cb_reshape) {
+		reshape_pending = 0;
+		get_window_size(&win_width, &win_height);
+		cb_reshape(win_width, win_height);
+	}
+
+	if(!upd_pending && !cb_idle) {
+		GetMessage(&msg, 0, 0, 0);
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+		if(quit) return;
+	}
+	while(PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+		if(quit) return;
+	}
+
+	if(cb_idle) {
+		cb_idle();
+	}
+
+	if(upd_pending && mapped) {
+		upd_pending = 0;
+		cb_display();
+	}
+}
+
+void glutSwapBuffers(void)
+{
+	SwapBuffers(dc);
+}
+
+void glutPositionWindow(int x, int y)
+{
+	RECT rect;
+	GetWindowRect(win, &rect);
+	MoveWindow(win, x, y, rect.right - rect.left, rect.bottom - rect.top, 1);
+}
+
+void glutReshapeWindow(int xsz, int ysz)
+{
+	RECT rect;
+	GetWindowRect(win, &rect);
+	MoveWindow(win, rect.left, rect.top, xsz, ysz, 1);
+}
+
+void glutFullScreen(void)
+{
+	/* TODO */
+}
+
+void glutSetWindowTitle(const char *title)
+{
+	SetWindowText(win, title);
+}
+
+void glutSetIconTitle(const char *title)
+{
+}
+
+void glutSetCursor(int cidx)
+{
+	switch(cidx) {
+	case GLUT_CURSOR_NONE:
+		ShowCursor(0);
+		break;
+	case GLUT_CURSOR_INHERIT:
+	case GLUT_CURSOR_LEFT_ARROW:
+	default:
+		SetCursor(LoadCursor(0, IDC_ARROW));
+		ShowCursor(1);
+	}
+}
+
+
+static void create_window(const char *title)
+{
+	int pixfmt;
+	PIXELFORMATDESCRIPTOR pfd = {0};
+
+	if(!(win = CreateWindow("MiniGLUT", title, WS_OVERLAPPEDWINDOW, init_x, init_y,
+				init_width, init_height, 0, 0, hinst, 0))) {
+		panic("Failed to create window\n");
+	}
+	dc = GetDC(win);
+
+	pfd.nSize = sizeof pfd;
+	pfd.nVersion = 1;
+	pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+	if(init_mode & GLUT_STEREO) {
+		pfd.dwFlags |= PFD_STEREO;
+	}
+	pfd.iPixelType = init_mode & GLUT_INDEX ? PFD_TYPE_COLORINDEX : PFD_TYPE_RGBA;
+	pfd.cColorBits = 24;
+	if(init_mode & GLUT_ALPHA) {
+		pfd.cAlphaBits = 8;
+	}
+	if(init_mode & GLUT_ACCUM) {
+		pfd.cAccumBits = 24;
+	}
+	if(init_mode & GLUT_DEPTH) {
+		pfd.cDepthBits = 24;
+	}
+	if(init_mode & GLUT_STENCIL) {
+		pfd.cStencilBits = 8;
+	}
+	pfd.iLayerType = PFD_MAIN_PLANE;
+
+	if(!(pixfmt = ChoosePixelFormat(dc, &pfd))) {
+		panic("Failed to find suitable pixel format\n");
+	}
+	if(!SetPixelFormat(dc, pixfmt, &pfd)) {
+		panic("Failed to set the selected pixel format\n");
+	}
+	if(!(ctx = wglCreateContext(dc))) {
+		panic("Failed to create the OpenGL context\n");
+	}
+	wglMakeCurrent(dc, ctx);
+
+	DescribePixelFormat(dc, pixfmt, sizeof pfd, &pfd);
+	ctx_info.rsize = pfd.cRedBits;
+	ctx_info.gsize = pfd.cGreenBits;
+	ctx_info.bsize = pfd.cBlueBits;
+	ctx_info.asize = pfd.cAlphaBits;
+	ctx_info.zsize = pfd.cDepthBits;
+	ctx_info.ssize = pfd.cStencilBits;
+	ctx_info.dblbuf = pfd.dwFlags & PFD_DOUBLEBUFFER ? 1 : 0;
+	ctx_info.samples = 1;	/* TODO */
+	ctx_info.srgb = 0;		/* TODO */
+
+	ShowWindow(win, 1);
+	upd_pending = 1;
+	reshape_pending = 1;
+}
+
+static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam, LPARAM lparam)
+{
+	static int mouse_x, mouse_y;
+	int key;
+
+	switch(msg) {
+	case WM_CLOSE:
+		if(win) DestroyWindow(win);
+		break;
+
+	case WM_DESTROY:
+		wglMakeCurrent(dc, 0);
+		wglDeleteContext(ctx);
+		quit = 1;
+		PostQuitMessage(0);
+		break;
+
+	case WM_PAINT:
+		upd_pending = 1;
+		ValidateRect(win, 0);
+		break;
+
+	case WM_SIZE:
+		win_width = lparam & 0xffff;
+		win_height = lparam >> 16;
+		if(cb_reshape) {
+			reshape_pending = 0;
+			cb_reshape(win_width, win_height);
+		}
+		break;
+
+	case WM_SHOWWINDOW:
+		mapped = wparam;
+		if(cb_vis) cb_vis(mapped ? GLUT_VISIBLE : GLUT_NOT_VISIBLE);
+		break;
+
+	case WM_KEYDOWN:
+		update_modkeys();
+		key = translate_vkey(wparam);
+		if(key < 256) {
+			if(cb_keydown) {
+				cb_keydown((unsigned char)key, mouse_x, mouse_y);
+			}
+		} else {
+			if(cb_skeydown) {
+				cb_skeydown(key, mouse_x, mouse_y);
+			}
+		}
+		break;
+
+	case WM_KEYUP:
+		update_modkeys();
+		key = translate_vkey(wparam);
+		if(key < 256) {
+			if(cb_keyup) {
+				cb_keyup((unsigned char)key, mouse_x, mouse_y);
+			}
+		} else {
+			if(cb_skeyup) {
+				cb_skeyup(key, mouse_x, mouse_y);
+			}
+		}
+		break;
+
+	case WM_LBUTTONDOWN:
+		handle_mbutton(0, 1, wparam, lparam);
+		break;
+	case WM_MBUTTONDOWN:
+		handle_mbutton(1, 1, wparam, lparam);
+		break;
+	case WM_RBUTTONDOWN:
+		handle_mbutton(2, 1, wparam, lparam);
+		break;
+	case WM_LBUTTONUP:
+		handle_mbutton(0, 0, wparam, lparam);
+		break;
+	case WM_MBUTTONUP:
+		handle_mbutton(1, 0, wparam, lparam);
+		break;
+	case WM_RBUTTONUP:
+		handle_mbutton(2, 0, wparam, lparam);
+		break;
+
+	case WM_MOUSEMOVE:
+		if(wparam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON)) {
+			if(cb_motion) cb_motion(lparam & 0xffff, lparam >> 16);
+		} else {
+			if(cb_passive) cb_passive(lparam & 0xffff, lparam >> 16);
+		}
+		break;
+
+	default:
+		return DefWindowProc(win, msg, wparam, lparam);
+	}
+
+	return 0;
+}
+
+static void update_modkeys(void)
+{
+	if(GetKeyState(VK_SHIFT)) {
+		modstate |= GLUT_ACTIVE_SHIFT;
+	} else {
+		modstate &= ~GLUT_ACTIVE_SHIFT;
+	}
+	if(GetKeyState(VK_CONTROL)) {
+		modstate |= GLUT_ACTIVE_CTRL;
+	} else {
+		modstate &= ~GLUT_ACTIVE_CTRL;
+	}
+	if(GetKeyState(VK_MENU)) {
+		modstate |= GLUT_ACTIVE_ALT;
+	} else {
+		modstate &= ~GLUT_ACTIVE_ALT;
+	}
+}
+
+static int translate_vkey(int vkey)
+{
+	return vkey;	/* TODO */
+}
+
+static void handle_mbutton(int bn, int st, WPARAM wparam, LPARAM lparam)
+{
+	int x, y;
+
+	update_modkeys();
+
+	if(cb_mouse) {
+		x = lparam & 0xffff;
+		y = lparam >> 16;
+		cb_mouse(bn, st ? GLUT_DOWN : GLUT_UP, x, y);
+	}
+}
+
+static void get_window_pos(int *x, int *y)
+{
+	RECT rect;
+	GetWindowRect(win, &rect);
+	*x = rect.left;
+	*y = rect.top;
+}
+
+static void get_window_size(int *w, int *h)
+{
+	RECT rect;
+	GetClientRect(win, &rect);
+	*w = rect.right - rect.left;
+	*h = rect.bottom - rect.top;
+}
+
+static void get_screen_size(int *scrw, int *scrh)
+{
+	*scrw = GetSystemMetrics(SM_CXSCREEN);
+	*scrh = GetSystemMetrics(SM_CYSCREEN);
+}
+#endif	/* BUILD_WIN32 */
 
 #if defined(__unix__) || defined(__APPLE__)
 #include <sys/time.h>
@@ -1086,7 +1415,7 @@ static int sys_write(int fd, const void *buf, int count)
 #endif	/* __linux__ */
 
 #ifdef _WIN32
-static int sys_exit(int status)
+static void sys_exit(int status)
 {
 	ExitProcess(status);
 }
