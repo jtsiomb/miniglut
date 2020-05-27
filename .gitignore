@@ -7,3 +7,6 @@ Debug/
 Release/
 *.obj
 *.suo
+*.ncb
+*.opt
+*.plg
