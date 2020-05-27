@@ -946,6 +946,15 @@ static void update_modkeys(void);
 static int translate_vkey(int vkey);
 static void handle_mbutton(int bn, int st, WPARAM wparam, LPARAM lparam);
 
+#ifdef MINIGLUT_WINMAIN
+int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, char *cmdline, int showcmd)
+{
+	int argc = 1;
+	char *argv[] = { "miniglut.exe", 0 };
+	return main(argc, argv);
+}
+#endif
+
 void glutMainLoopEvent(void)
 {
 	MSG msg;
@@ -1209,7 +1218,21 @@ static void update_modkeys(void)
 
 static int translate_vkey(int vkey)
 {
-	return vkey;	/* TODO */
+	switch(vkey) {
+	case VK_PRIOR: return GLUT_KEY_PAGE_UP;
+	case VK_NEXT: return GLUT_KEY_PAGE_DOWN;
+	case VK_END: return GLUT_KEY_END;
+	case VK_HOME: return GLUT_KEY_HOME;
+	case VK_LEFT: return GLUT_KEY_LEFT;
+	case VK_UP: return GLUT_KEY_UP;
+	case VK_RIGHT: return GLUT_KEY_RIGHT;
+	case VK_DOWN: return GLUT_KEY_DOWN;
+	default:
+		if(vkey >= VK_F1 && vkey <= VK_F12) {
+			return vkey - VK_F1 + GLUT_KEY_F1;
+		}
+	}
+	return vkey;
 }
 
 static void handle_mbutton(int bn, int st, WPARAM wparam, LPARAM lparam)
