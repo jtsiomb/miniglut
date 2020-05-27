@@ -102,6 +102,9 @@ typedef void (*glut_cb_motion)(int x, int y);
 typedef void (*glut_cb_sbmotion)(int x, int y, int z);
 typedef void (*glut_cb_sbbutton)(int bn, int state);
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void glutInit(int *argc, char **argv);
 void glutInitWindowPosition(int x, int y);
@@ -153,5 +156,9 @@ void glutSolidTorus(float inner_rad, float outer_rad, int sides, int rings);
 void glutWireTorus(float inner_rad, float outer_rad, int sides, int rings);
 void glutSolidTeapot(float size);
 void glutWireTeapot(float size);
+
+#ifdef __cplusplus
+}	/* extern "C" */
+#endif
 
 #endif	/* MINIGLUT_H_ */
