@@ -15,22 +15,13 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-/*#define MINIGLUT_GCC_NO_BUILTIN*/
-
 #ifdef MINIGLUT_USE_LIBC
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <math.h>
 #else
-
-#if defined(__GNUC__) && !defined(MINIGLUT_GCC_NO_BUILTIN)
-#define mglut_sincosf(a, s, c)	__builtin_sincosf(a, s, c)
-#define mglut_atan(x)			__builtin_atan(x)
-#else
 static void mglut_sincosf(float angle, float *sptr, float *cptr);
 static float mglut_atan(float x);
-#endif
-
 #endif
 
 #define PI	3.1415926536f
@@ -116,7 +107,7 @@ static glut_cb_sbbutton cb_sball_button;
 static int win_width, win_height;
 static int mapped;
 static int quit;
-static int upd_pending, reshape_pending;
+static int upd_pending;
 static int modstate;
 
 
@@ -809,16 +800,23 @@ void glutSetCursor(int cidx)
 static XVisualInfo *choose_visual(unsigned int mode)
 {
 	XVisualInfo *vi;
-	int attr[32] = {
-		GLX_RGBA,
-		GLX_DOUBLEBUFFER,
-		GLX_RED_SIZE, 4,
-		GLX_GREEN_SIZE, 4,
-		GLX_BLUE_SIZE, 4
-	};
-	int *aptr = attr + 8;
+	int attr[32];
+	int *aptr = attr;
 	int *samples = 0;
 
+	if(mode & GLUT_DOUBLE) {
+		*aptr++ = GLX_DOUBLEBUFFER;
+	}
+
+	if(mode & GLUT_INDEX) {
+		*aptr++ = GLX_BUFFER_SIZE;
+		*aptr++ = 1;
+	} else {
+		*aptr++ = GLX_RGBA;
+		*aptr++ = GLX_RED_SIZE; *aptr++ = 4;
+		*aptr++ = GLX_GREEN_SIZE; *aptr++ = 4;
+		*aptr++ = GLX_BLUE_SIZE; *aptr++ = 4;
+	}
 	if(mode & GLUT_ALPHA) {
 		*aptr++ = GLX_ALPHA_SIZE;
 		*aptr++ = 4;
@@ -942,6 +940,8 @@ static void get_screen_size(int *scrw, int *scrh)
 
 /* --------------- windows implementation ----------------- */
 #ifdef BUILD_WIN32
+static int reshape_pending;
+
 static void update_modkeys(void);
 static int translate_vkey(int vkey);
 static void handle_mbutton(int bn, int st, WPARAM wparam, LPARAM lparam);
@@ -949,7 +949,7 @@ static void handle_mbutton(int bn, int st, WPARAM wparam, LPARAM lparam);
 void glutMainLoopEvent(void)
 {
 	MSG msg;
-	
+
 	if(!cb_display) {
 		panic("display callback not set");
 	}
@@ -1251,12 +1251,18 @@ static void get_screen_size(int *scrw, int *scrh)
 #if defined(__unix__) || defined(__APPLE__)
 #include <sys/time.h>
 
+#ifdef MINIGLUT_USE_LIBC
+#define sys_gettimeofday(tv, tz)	gettimeofday(tv, tz)
+#else
+static int sys_gettimeofday(struct timeval *tv, struct timezone *tz);
+#endif
+
 static long get_msec(void)
 {
 	static struct timeval tv0;
 	struct timeval tv;
 
-	gettimeofday(&tv, 0);
+	sys_gettimeofday(&tv, 0);
 	if(tv0.tv_sec == 0 && tv0.tv_usec == 0) {
 		tv0 = tv;
 		return 0;
@@ -1268,12 +1274,18 @@ static long get_msec(void)
 static long get_msec(void)
 {
 	static long t0;
+	long tm;
 
+#ifdef MINIGLUT_NO_WINMM
+	tm = GetTickCount();
+#else
+	tm = timeGetTime();
+#endif
 	if(!t0) {
-		t0 = timeGetTime();
+		t0 = tm;
 		return 0;
 	}
-	return timeGetTime() - t0;
+	return tm - t0;
 }
 #endif
 
@@ -1297,9 +1309,14 @@ static int sys_write(int fd, const void *buf, int count)
 	return write(fd, buf, count);
 }
 
+static int sys_gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+	return gettimeofday(tv, tz);
+}
+
 #else	/* !MINIGLUT_USE_LIBC */
 
-#if defined(__GNUC__) && defined(MINIGLUT_GCC_NO_BUILTIN)
+#ifdef __GNUC__
 static void mglut_sincosf(float angle, float *sptr, float *cptr)
 {
 	asm volatile(
@@ -1377,8 +1394,7 @@ static void sys_exit(int status)
 {
 	asm volatile(
 		"syscall\n\t"
-		:: "a"(60), "D"(status)
-	);
+		:: "a"(60), "D"(status));
 }
 static int sys_write(int fd, const void *buf, int count)
 {
@@ -1386,8 +1402,16 @@ static int sys_write(int fd, const void *buf, int count)
 	asm volatile(
 		"syscall\n\t"
 		: "=a"(res)
-		: "a"(1), "D"(fd), "S"(buf), "d"(count)
-	);
+		: "a"(1), "D"(fd), "S"(buf), "d"(count));
+	return res;
+}
+static int sys_gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+	int res;
+	asm volatile(
+		"syscall\n\t"
+		: "=a"(res)
+		: "a"(96), "D"(tv), "S"(tz));
 	return res;
 }
 #endif
@@ -1395,19 +1419,25 @@ static int sys_write(int fd, const void *buf, int count)
 static void sys_exit(int status)
 {
 	asm volatile(
-		"mov $1, %%eax\n\t"
 		"int $0x80\n\t"
-		:: "b"(status)
-		: "eax"
-	);
+		:: "a"(1), "b"(status));
 }
 static int sys_write(int fd, const void *buf, int count)
 {
 	int res;
 	asm volatile(
-		"mov $4, %%eax\n\t"
 		"int $0x80\n\t"
-		:: "b"(fd), "c"(buf), "d"(count));
+		: "=a"(res)
+		: "a"(4), "b"(fd), "c"(buf), "d"(count));
+	return res;
+}
+static int sys_gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+	int res;
+	asm volatile(
+		"int $0x80\n\t"
+		: "=a"(res)
+		: "a"(78), "b"(tv), "c"(tz));
 	return res;
 }
 #endif
@@ -1421,7 +1451,7 @@ static void sys_exit(int status)
 }
 static int sys_write(int fd, const void *buf, int count)
 {
-	int wrsz;
+	unsigned long wrsz = 0;
 
 	HANDLE out = GetStdHandle(fd == 1 ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);
 	if(!WriteFile(out, buf, count, &wrsz, 0)) {

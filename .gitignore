@@ -2,3 +2,8 @@
 *.d
 *.swp
 test
+test.exe
+Debug/
+Release/
+*.obj
+*.suo

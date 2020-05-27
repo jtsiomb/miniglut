@@ -24,7 +24,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #ifdef _MSC_VER
 #pragma comment (lib, "opengl32")
+#ifndef MINIGLUT_NO_WINMM
 #pragma comment (lib, "winmm")
+#endif
 #endif	/* MSVC */
 
 #endif

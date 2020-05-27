@@ -1,5 +1,6 @@
 #include "miniglut.h"
 
+void idle(void);
 void display(void);
 void reshape(int x, int y);
 void keypress(unsigned char key, int x, int y);
@@ -9,6 +10,7 @@ void motion(int x, int y);
 float cam_theta, cam_phi = 25, cam_dist = 8;
 int mouse_x, mouse_y;
 int bnstate[8];
+int anim;
 
 int main(int argc, char **argv)
 {
@@ -32,10 +34,18 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+void idle(void)
+{
+	glutPostRedisplay();
+}
 
 void display(void)
 {
+	long tm;
 	float lpos[] = {-1, 2, 3, 0};
+
+	tm = glutGet(GLUT_ELAPSED_TIME);
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glMatrixMode(GL_MODELVIEW);
@@ -46,7 +56,14 @@ void display(void)
 
 	glLightfv(GL_LIGHT0, GL_POSITION, lpos);
 
+	glPushMatrix();
+	if(anim) {
+		glRotatef(tm / 10.0f, 1, 0, 0);
+		glRotatef(tm / 10.0f, 0, 1, 0);
+	}
 	glutSolidTorus(0.3, 1, 16, 24);
+	glPopMatrix();
+
 	glutSolidSphere(0.4, 16, 8);
 
 	glPushMatrix();
@@ -84,8 +101,17 @@ void reshape(int x, int y)
 
 void keypress(unsigned char key, int x, int y)
 {
-	if(key == 27 || key == 'q') {
+	switch(key) {
+	case 27:
+	case 'q':
 		glutExit();
+		break;
+
+	case ' ':
+		anim ^= 1;
+		glutIdleFunc(anim ? idle : 0);
+		glutPostRedisplay();
+		break;
 	}
 }
 
