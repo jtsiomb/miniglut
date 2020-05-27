@@ -83,9 +83,9 @@ struct ctx_info {
 };
 
 static void create_window(const char *title);
-static void get_window_pos(Window win, int *x, int *y);
-static void get_window_size(Window win, int *w, int *h);
-static void get_screen_size(Window win, int *scrw, int *scrh);
+static void get_window_pos(int *x, int *y);
+static void get_window_size(int *w, int *h);
+static void get_screen_size(int *scrw, int *scrh);
 
 static long get_msec(void);
 static void panic(const char *msg);
@@ -289,16 +289,16 @@ int glutGet(unsigned int s)
 	int x, y;
 	switch(s) {
 	case GLUT_WINDOW_X:
-		get_window_pos(win, &x, &y);
+		get_window_pos(&x, &y);
 		return x;
 	case GLUT_WINDOW_Y:
-		get_window_pos(win, &x, &y);
+		get_window_pos(&x, &y);
 		return y;
 	case GLUT_WINDOW_WIDTH:
-		get_window_size(win, &x, &y);
+		get_window_size(&x, &y);
 		return x;
 	case GLUT_WINDOW_HEIGHT:
-		get_window_size(win, &x, &y);
+		get_window_size(&x, &y);
 		return y;
 	case GLUT_WINDOW_BUFFER_SIZE:
 		return ctx_info.rsize + ctx_info.gsize + ctx_info.bsize + ctx_info.asize;
@@ -327,10 +327,10 @@ int glutGet(unsigned int s)
 	case GLUT_WINDOW_CURSOR:
 		return cur_cursor;
 	case GLUT_SCREEN_WIDTH:
-		get_screen_size(win, &x, &y);
+		get_screen_size(&x, &y);
 		return x;
 	case GLUT_SCREEN_HEIGHT:
-		get_screen_size(win, &x, &y);
+		get_screen_size(&x, &y);
 		return y;
 	case GLUT_INIT_DISPLAY_MODE:
 		return init_mode;
@@ -894,7 +894,7 @@ static void create_window(const char *title)
 	glXMakeCurrent(dpy, win, ctx);
 }
 
-static void get_window_pos(Window win, int *x, int *y)
+static void get_window_pos(int *x, int *y)
 {
 	XWindowAttributes wattr;
 	XGetWindowAttributes(dpy, win, &wattr);
@@ -902,7 +902,7 @@ static void get_window_pos(Window win, int *x, int *y)
 	*y = wattr.y;
 }
 
-static void get_window_size(Window win, int *w, int *h)
+static void get_window_size(int *w, int *h)
 {
 	XWindowAttributes wattr;
 	XGetWindowAttributes(dpy, win, &wattr);
@@ -910,7 +910,7 @@ static void get_window_size(Window win, int *w, int *h)
 	*h = wattr.height;
 }
 
-static void get_screen_size(Window win, int *scrw, int *scrh)
+static void get_screen_size(int *scrw, int *scrh)
 {
 	XWindowAttributes wattr;
 	XGetWindowAttributes(dpy, root, &wattr);
