@@ -1196,6 +1196,7 @@ static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam
 		break;
 
 	case WM_KEYDOWN:
+	case WM_SYSKEYDOWN:
 		update_modkeys();
 		key = translate_vkey(wparam);
 		if(key < 256) {
@@ -1210,6 +1211,7 @@ static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam
 		break;
 
 	case WM_KEYUP:
+	case WM_SYSKEYUP:
 		update_modkeys();
 		key = translate_vkey(wparam);
 		if(key < 256) {
@@ -1251,7 +1253,8 @@ static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam
 		break;
 
 	case WM_SYSCOMMAND:
-		if(wparam == SC_SCREENSAVE || wparam == SC_MONITORPOWER) {
+		wparam &= 0xfff0;
+		if(wparam == SC_KEYMENU || wparam == SC_SCREENSAVE || wparam == SC_MONITORPOWER) {
 			return 0;
 		}
 	default:
@@ -1263,17 +1266,17 @@ static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam
 
 static void update_modkeys(void)
 {
-	if(GetKeyState(VK_SHIFT)) {
+	if(GetKeyState(VK_SHIFT) & 0x8000) {
 		modstate |= GLUT_ACTIVE_SHIFT;
 	} else {
 		modstate &= ~GLUT_ACTIVE_SHIFT;
 	}
-	if(GetKeyState(VK_CONTROL)) {
+	if(GetKeyState(VK_CONTROL) & 0x8000) {
 		modstate |= GLUT_ACTIVE_CTRL;
 	} else {
 		modstate &= ~GLUT_ACTIVE_CTRL;
 	}
-	if(GetKeyState(VK_MENU)) {
+	if(GetKeyState(VK_MENU) & 0x8000) {
 		modstate |= GLUT_ACTIVE_ALT;
 	} else {
 		modstate &= ~GLUT_ACTIVE_ALT;
