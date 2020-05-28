@@ -101,6 +101,8 @@ void reshape(int x, int y)
 
 void keypress(unsigned char key, int x, int y)
 {
+	static int fullscr;
+
 	switch(key) {
 	case 27:
 	case 'q':
@@ -111,6 +113,15 @@ void keypress(unsigned char key, int x, int y)
 		anim ^= 1;
 		glutIdleFunc(anim ? idle : 0);
 		glutPostRedisplay();
+		break;
+
+	case 'f':
+		fullscr ^= 1;
+		if(fullscr) {
+			glutFullScreen();
+		} else {
+			glutPositionWindow(10, 10);
+		}
 		break;
 	}
 }

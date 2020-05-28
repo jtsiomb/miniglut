@@ -104,6 +104,9 @@ static glut_cb_motion cb_motion, cb_passive;
 static glut_cb_sbmotion cb_sball_motion, cb_sball_rotate;
 static glut_cb_sbbutton cb_sball_button;
 
+static int fullscreen;
+static int prev_win_x, prev_win_y, prev_win_width, prev_win_height;
+
 static int win_width, win_height;
 static int mapped;
 static int quit;
@@ -1005,20 +1008,58 @@ void glutSwapBuffers(void)
 void glutPositionWindow(int x, int y)
 {
 	RECT rect;
-	GetWindowRect(win, &rect);
-	MoveWindow(win, x, y, rect.right - rect.left, rect.bottom - rect.top, 1);
+	unsigned int flags = SWP_SHOWWINDOW;
+
+	if(fullscreen) {
+		rect.left = prev_win_x;
+		rect.top = prev_win_y;
+		rect.right = rect.left + prev_win_width;
+		rect.bottom = rect.top + prev_win_height;
+		SetWindowLong(win, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+		fullscreen = 0;
+		flags |= SWP_FRAMECHANGED;
+	} else {
+		GetWindowRect(win, &rect);
+	}
+	SetWindowPos(win, HWND_NOTOPMOST, x, y, rect.right - rect.left, rect.bottom - rect.top, flags);
 }
 
 void glutReshapeWindow(int xsz, int ysz)
 {
 	RECT rect;
-	GetWindowRect(win, &rect);
-	MoveWindow(win, rect.left, rect.top, xsz, ysz, 1);
+	unsigned int flags = SWP_SHOWWINDOW;
+
+	if(fullscreen) {
+		rect.left = prev_win_x;
+		rect.top = prev_win_y;
+		SetWindowLong(win, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+		fullscreen = 0;
+		flags |= SWP_FRAMECHANGED;
+	} else {
+		GetWindowRect(win, &rect);
+	}
+	SetWindowPos(win, HWND_NOTOPMOST, rect.left, rect.top, xsz, ysz, flags);
 }
 
 void glutFullScreen(void)
 {
-	/* TODO */
+	RECT rect;
+	int scr_width, scr_height;
+
+	if(fullscreen) return;
+
+	GetWindowRect(win, &rect);
+	prev_win_x = rect.left;
+	prev_win_y = rect.top;
+	prev_win_width = rect.right - rect.left;
+	prev_win_height = rect.bottom - rect.top;
+
+	get_screen_size(&scr_width, &scr_height);
+
+	SetWindowLong(win, GWL_STYLE, 0);
+	SetWindowPos(win, HWND_TOPMOST, 0, 0, scr_width, scr_height, SWP_SHOWWINDOW);
+
+	fullscreen = 1;
 }
 
 void glutSetWindowTitle(const char *title)
@@ -1108,6 +1149,8 @@ static void create_window(const char *title)
 	ctx_info.srgb = 0;		/* TODO */
 
 	ShowWindow(win, 1);
+	SetForegroundWindow(win);
+	SetFocus(win);
 	upd_pending = 1;
 	reshape_pending = 1;
 }
@@ -1115,7 +1158,7 @@ static void create_window(const char *title)
 static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam, LPARAM lparam)
 {
 	static int mouse_x, mouse_y;
-	int key;
+	int x, y, key;
 
 	switch(msg) {
 	case WM_CLOSE:
@@ -1135,11 +1178,15 @@ static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam
 		break;
 
 	case WM_SIZE:
-		win_width = lparam & 0xffff;
-		win_height = lparam >> 16;
-		if(cb_reshape) {
-			reshape_pending = 0;
-			cb_reshape(win_width, win_height);
+		x = lparam & 0xffff;
+		y = lparam >> 16;
+		if(x != win_width && y != win_height) {
+			win_width = x;
+			win_height = y;
+			if(cb_reshape) {
+				reshape_pending = 0;
+				cb_reshape(win_width, win_height);
+			}
 		}
 		break;
 
@@ -1203,6 +1250,10 @@ static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam
 		}
 		break;
 
+	case WM_SYSCOMMAND:
+		if(wparam == SC_SCREENSAVE || wparam == SC_MONITORPOWER) {
+			return 0;
+		}
 	default:
 		return DefWindowProc(win, msg, wparam, lparam);
 	}
@@ -1241,10 +1292,15 @@ static int translate_vkey(int vkey)
 	case VK_RIGHT: return GLUT_KEY_RIGHT;
 	case VK_DOWN: return GLUT_KEY_DOWN;
 	default:
-		if(vkey >= VK_F1 && vkey <= VK_F12) {
-			return vkey - VK_F1 + GLUT_KEY_F1;
-		}
+		break;
 	}
+
+	if(vkey >= 'A' && vkey <= 'Z') {
+		vkey += 32;
+	} else if(vkey >= VK_F1 && vkey <= VK_F12) {
+		vkey -= VK_F1 + GLUT_KEY_F1;
+	}
+
 	return vkey;
 }
 
