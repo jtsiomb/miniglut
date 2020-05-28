@@ -102,6 +102,7 @@ void reshape(int x, int y)
 void keypress(unsigned char key, int x, int y)
 {
 	static int fullscr;
+	static int prev_xsz, prev_ysz;
 
 	switch(key) {
 	case 27:
@@ -115,12 +116,19 @@ void keypress(unsigned char key, int x, int y)
 		glutPostRedisplay();
 		break;
 
+	case '\n':
+	case '\r':
+		if(!(glutGetModifiers() & GLUT_ACTIVE_ALT)) {
+			break;
+		}
 	case 'f':
 		fullscr ^= 1;
 		if(fullscr) {
+			prev_xsz = glutGet(GLUT_WINDOW_WIDTH);
+			prev_ysz = glutGet(GLUT_WINDOW_HEIGHT);
 			glutFullScreen();
 		} else {
-			glutPositionWindow(10, 10);
+			glutReshapeWindow(prev_xsz, prev_ysz);
 		}
 		break;
 	}

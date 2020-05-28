@@ -46,6 +46,8 @@ static Window win, root;
 static int scr;
 static GLXContext ctx;
 static Atom xa_wm_proto, xa_wm_del_win;
+static Atom xa_net_wm_state, xa_net_wm_fullscr;
+static Atom xa_motif_wm_hints;
 static unsigned int evmask;
 
 #elif defined(_WIN32)
@@ -63,7 +65,6 @@ static HGLRC ctx;
 #else
 #error unsupported platform
 #endif
-
 #include <GL/gl.h>
 #include "miniglut.h"
 
@@ -124,6 +125,12 @@ void glutInit(int *argc, char **argv)
 	root = RootWindow(dpy, scr);
 	xa_wm_proto = XInternAtom(dpy, "WM_PROTOCOLS", False);
 	xa_wm_del_win = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
+	/* the following atoms are not added if they don't already exist, to detect
+	 * if the window manager supports MWM hints and/or EWMH
+	 */
+	xa_motif_wm_hints = XInternAtom(dpy, "_MOTIF_WM_HINTS", True);
+	xa_net_wm_state = XInternAtom(dpy, "_NET_WM_STATE", True);
+	xa_net_wm_fullscr = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", True);
 
 	evmask = ExposureMask | StructureNotifyMask;
 #endif
@@ -751,19 +758,74 @@ void glutSwapBuffers(void)
 	glXSwapBuffers(dpy, win);
 }
 
+struct mwm_hints {
+	unsigned long flags;
+	unsigned long functions;
+	unsigned long decorations;
+	long input_mode;
+	unsigned long status;
+};
+
+#define MWM_HINTS_DECORATIONS	2
+#define MWM_DECOR_ALL			1
+
+static void set_fullscreen_mwm(int fs)
+{
+	struct mwm_hints hints;
+
+	if(fs) {
+		hints.decorations = 0;
+		hints.flags = MWM_HINTS_DECORATIONS;
+		XChangeProperty(dpy, win, xa_motif_wm_hints, xa_motif_wm_hints, 32,
+				PropModeReplace, (unsigned char*)&hints, 5);
+	} else {
+		XDeleteProperty(dpy, win, xa_motif_wm_hints);
+	}
+}
+
+static void set_fullscreen_ewmh(int fs)
+{
+	XClientMessageEvent msg = {0};
+
+	msg.type = ClientMessage;
+	msg.window = win;
+	msg.message_type = xa_net_wm_state;	/* _NET_WM_STATE */
+	msg.format = 32;
+	msg.data.l[0] = fs ? 1 : 0;
+	msg.data.l[1] = xa_net_wm_fullscr;	/* _NET_WM_STATE_FULLSCREEN */
+	msg.data.l[2] = 0;
+	msg.data.l[3] = 1;	/* source regular application */
+	XSendEvent(dpy, root, False, SubstructureNotifyMask | SubstructureRedirectMask, (XEvent*)&msg);
+}
+
+static void set_fullscreen(int fs)
+{
+	if(fullscreen == fs) return;
+
+	if(xa_net_wm_state && xa_net_wm_fullscr) {
+		set_fullscreen_ewmh(fs);
+		fullscreen = fs;
+	} else if(xa_motif_wm_hints) {
+		set_fullscreen_mwm(fs);
+		fullscreen = fs;
+	}
+}
+
 void glutPositionWindow(int x, int y)
 {
+	set_fullscreen(0);
 	XMoveWindow(dpy, win, x, y);
 }
 
 void glutReshapeWindow(int xsz, int ysz)
 {
+	set_fullscreen(0);
 	XResizeWindow(dpy, win, xsz, ysz);
 }
 
 void glutFullScreen(void)
 {
-	/* TODO */
+	set_fullscreen(1);
 }
 
 void glutSetWindowTitle(const char *title)
