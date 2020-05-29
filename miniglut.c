@@ -15,20 +15,10 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifdef MINIGLUT_USE_LIBC
-#define _GNU_SOURCE
-#include <stdlib.h>
-#include <math.h>
-#else
-static void mglut_sincosf(float angle, float *sptr, float *cptr);
-static float mglut_atan(float x);
-#endif
-
-#define PI	3.1415926536f
-
 #if defined(__unix__)
 
 #include <X11/Xlib.h>
+#include <X11/keysym.h>
 #include <X11/cursorfont.h>
 #include <GL/glx.h>
 #define BUILD_X11
@@ -46,9 +36,11 @@ static Window win, root;
 static int scr;
 static GLXContext ctx;
 static Atom xa_wm_proto, xa_wm_del_win;
-static Atom xa_net_wm_state, xa_net_wm_fullscr;
+static Atom xa_net_wm_state, xa_net_wm_state_fullscr;
 static Atom xa_motif_wm_hints;
 static unsigned int evmask;
+
+static int have_netwm_fullscr(void);
 
 #elif defined(_WIN32)
 
@@ -125,14 +117,14 @@ void glutInit(int *argc, char **argv)
 	root = RootWindow(dpy, scr);
 	xa_wm_proto = XInternAtom(dpy, "WM_PROTOCOLS", False);
 	xa_wm_del_win = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
-	/* the following atoms are not added if they don't already exist, to detect
-	 * if the window manager supports MWM hints and/or EWMH
-	 */
-	xa_motif_wm_hints = XInternAtom(dpy, "_MOTIF_WM_HINTS", True);
-	xa_net_wm_state = XInternAtom(dpy, "_NET_WM_STATE", True);
-	xa_net_wm_fullscr = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", True);
+	xa_motif_wm_hints = XInternAtom(dpy, "_MOTIF_WM_HINTS", False);
+	if(have_netwm_fullscr()) {
+		xa_net_wm_state = XInternAtom(dpy, "_NET_WM_STATE", False);
+		xa_net_wm_state_fullscr = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
+	}
 
 	evmask = ExposureMask | StructureNotifyMask;
+
 #endif
 #ifdef BUILD_WIN32
 	WNDCLASSEX wc = {0};
@@ -417,202 +409,6 @@ int glutExtensionSupported(char *ext)
 	return 0;
 }
 
-/* TODO */
-void glutSolidSphere(float rad, int slices, int stacks)
-{
-	int i, j, k, gray;
-	float x, y, z, s, t, u, v, phi, theta, sintheta, costheta, sinphi, cosphi;
-	float du = 1.0f / (float)slices;
-	float dv = 1.0f / (float)stacks;
-
-	glBegin(GL_QUADS);
-	for(i=0; i<stacks; i++) {
-		v = i * dv;
-		for(j=0; j<slices; j++) {
-			u = j * du;
-			for(k=0; k<4; k++) {
-				gray = k ^ (k >> 1);
-				s = gray & 1 ? u + du : u;
-				t = gray & 2 ? v + dv : v;
-				theta = s * PI * 2.0f;
-				phi = t * PI;
-				mglut_sincosf(theta, &sintheta, &costheta);
-				mglut_sincosf(phi, &sinphi, &cosphi);
-				x = sintheta * sinphi;
-				y = costheta * sinphi;
-				z = cosphi;
-
-				glColor3f(s, t, 1);
-				glTexCoord2f(s, t);
-				glNormal3f(x, y, z);
-				glVertex3f(x * rad, y * rad, z * rad);
-			}
-		}
-	}
-	glEnd();
-}
-
-void glutWireSphere(float rad, int slices, int stacks)
-{
-	glPushAttrib(GL_POLYGON_BIT);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glutSolidSphere(rad, slices, stacks);
-	glPopAttrib();
-}
-
-void glutSolidCube(float sz)
-{
-	int i, j, idx, gray, flip, rotx;
-	float vpos[3], norm[3];
-	float rad = sz * 0.5f;
-
-	glBegin(GL_QUADS);
-	for(i=0; i<6; i++) {
-		flip = i & 1;
-		rotx = i >> 2;
-		idx = (~i & 2) - rotx;
-		norm[0] = norm[1] = norm[2] = 0.0f;
-		norm[idx] = flip ^ ((i >> 1) & 1) ? -1 : 1;
-		glNormal3fv(norm);
-		vpos[idx] = norm[idx] * rad;
-		for(j=0; j<4; j++) {
-			gray = j ^ (j >> 1);
-			vpos[i & 2] = (gray ^ flip) & 1 ? rad : -rad;
-			vpos[rotx + 1] = (gray ^ (rotx << 1)) & 2 ? rad : -rad;
-			glTexCoord2f(gray & 1, gray >> 1);
-			glVertex3fv(vpos);
-		}
-	}
-	glEnd();
-}
-
-void glutWireCube(float sz)
-{
-	glPushAttrib(GL_POLYGON_BIT);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glutSolidCube(sz);
-	glPopAttrib();
-}
-
-static void draw_cylinder(float rbot, float rtop, float height, int slices, int stacks)
-{
-	int i, j, k, gray;
-	float x, y, z, s, t, u, v, theta, phi, sintheta, costheta, sinphi, cosphi, rad;
-	float du = 1.0f / (float)slices;
-	float dv = 1.0f / (float)stacks;
-
-	rad = rbot - rtop;
-	phi = mglut_atan((rad < 0 ? -rad : rad) / height);
-	mglut_sincosf(phi, &sinphi, &cosphi);
-
-	glBegin(GL_QUADS);
-	for(i=0; i<stacks; i++) {
-		v = i * dv;
-		for(j=0; j<slices; j++) {
-			u = j * du;
-			for(k=0; k<4; k++) {
-				gray = k ^ (k >> 1);
-				s = gray & 2 ? u + du : u;
-				t = gray & 1 ? v + dv : v;
-				rad = rbot + (rtop - rbot) * t;
-				theta = s * PI * 2.0f;
-				mglut_sincosf(theta, &sintheta, &costheta);
-
-				x = sintheta * cosphi;
-				y = costheta * cosphi;
-				z = sinphi;
-
-				glColor3f(s, t, 1);
-				glTexCoord2f(s, t);
-				glNormal3f(x, y, z);
-				glVertex3f(sintheta * rad, costheta * rad, t * height);
-			}
-		}
-	}
-	glEnd();
-}
-
-void glutSolidCone(float base, float height, int slices, int stacks)
-{
-	draw_cylinder(base, 0, height, slices, stacks);
-}
-
-void glutWireCone(float base, float height, int slices, int stacks)
-{
-	glPushAttrib(GL_POLYGON_BIT);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glutSolidCone(base, height, slices, stacks);
-	glPopAttrib();
-}
-
-void glutSolidCylinder(float rad, float height, int slices, int stacks)
-{
-	draw_cylinder(rad, rad, height, slices, stacks);
-}
-
-void glutWireCylinder(float rad, float height, int slices, int stacks)
-{
-	glPushAttrib(GL_POLYGON_BIT);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glutSolidCylinder(rad, height, slices, stacks);
-	glPopAttrib();
-}
-
-void glutSolidTorus(float inner_rad, float outer_rad, int sides, int rings)
-{
-	int i, j, k, gray;
-	float x, y, z, s, t, u, v, phi, theta, sintheta, costheta, sinphi, cosphi;
-	float du = 1.0f / (float)rings;
-	float dv = 1.0f / (float)sides;
-
-	glBegin(GL_QUADS);
-	for(i=0; i<rings; i++) {
-		u = i * du;
-		for(j=0; j<sides; j++) {
-			v = j * dv;
-			for(k=0; k<4; k++) {
-				gray = k ^ (k >> 1);
-				s = gray & 1 ? u + du : u;
-				t = gray & 2 ? v + dv : v;
-				theta = s * PI * 2.0f;
-				phi = t * PI * 2.0f;
-				mglut_sincosf(theta, &sintheta, &costheta);
-				mglut_sincosf(phi, &sinphi, &cosphi);
-				x = sintheta * sinphi;
-				y = costheta * sinphi;
-				z = cosphi;
-
-				glColor3f(s, t, 1);
-				glTexCoord2f(s, t);
-				glNormal3f(x, y, z);
-
-				x = x * inner_rad + sintheta * outer_rad;
-				y = y * inner_rad + costheta * outer_rad;
-				z *= inner_rad;
-				glVertex3f(x, y, z);
-			}
-		}
-	}
-	glEnd();
-}
-
-void glutWireTorus(float inner_rad, float outer_rad, int sides, int rings)
-{
-	glPushAttrib(GL_POLYGON_BIT);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glutSolidTorus(inner_rad, outer_rad, sides, rings);
-	glPopAttrib();
-}
-
-void glutSolidTeapot(float size)
-{
-}
-
-void glutWireTeapot(float size)
-{
-}
-
-
 
 /* --------------- UNIX/X11 implementation ----------------- */
 #ifdef BUILD_X11
@@ -783,6 +579,29 @@ static void set_fullscreen_mwm(int fs)
 	}
 }
 
+static int have_netwm_fullscr(void)
+{
+	int fmt;
+	long offs = 0;
+	unsigned long i, count, rem;
+	Atom prop[8], type;
+	Atom xa_net_supported = XInternAtom(dpy, "_NET_SUPPORTED", False);
+
+	do {
+		XGetWindowProperty(dpy, root, xa_net_supported, offs, 8, False, AnyPropertyType,
+				&type, &fmt, &count, &rem, (unsigned char**)prop);
+
+		for(i=0; i<count; i++) {
+			if(prop[i] == xa_net_wm_state_fullscr) {
+				return 1;
+			}
+		}
+		offs += count;
+	} while(rem > 0);
+
+	return 0;
+}
+
 static void set_fullscreen_ewmh(int fs)
 {
 	XClientMessageEvent msg = {0};
@@ -792,7 +611,7 @@ static void set_fullscreen_ewmh(int fs)
 	msg.message_type = xa_net_wm_state;	/* _NET_WM_STATE */
 	msg.format = 32;
 	msg.data.l[0] = fs ? 1 : 0;
-	msg.data.l[1] = xa_net_wm_fullscr;	/* _NET_WM_STATE_FULLSCREEN */
+	msg.data.l[1] = xa_net_wm_state_fullscr;	/* _NET_WM_STATE_FULLSCREEN */
 	msg.data.l[2] = 0;
 	msg.data.l[3] = 1;	/* source regular application */
 	XSendEvent(dpy, root, False, SubstructureNotifyMask | SubstructureRedirectMask, (XEvent*)&msg);
@@ -802,7 +621,7 @@ static void set_fullscreen(int fs)
 {
 	if(fullscreen == fs) return;
 
-	if(xa_net_wm_state && xa_net_wm_fullscr) {
+	if(xa_net_wm_state && xa_net_wm_state_fullscr) {
 		set_fullscreen_ewmh(fs);
 		fullscreen = fs;
 	} else if(xa_motif_wm_hints) {
@@ -934,7 +753,7 @@ static XVisualInfo *choose_visual(unsigned int mode)
 
 static void create_window(const char *title)
 {
-	XSetWindowAttributes xattr;
+	XSetWindowAttributes xattr = {0};
 	XVisualInfo *vi;
 	unsigned int xattr_mask;
 	unsigned int mode = init_mode;
@@ -964,7 +783,7 @@ static void create_window(const char *title)
 
 	xattr.background_pixel = BlackPixel(dpy, scr);
 	xattr.colormap = XCreateColormap(dpy, root, vi->visual, AllocNone);
-	xattr_mask = CWBackPixel | CWColormap;
+	xattr_mask = CWBackPixel | CWColormap | CWBackPixmap | CWBorderPixel;
 	if(!(win = XCreateWindow(dpy, root, init_x, init_y, init_width, init_height, 0,
 			vi->depth, InputOutput, vi->visual, xattr_mask, &xattr))) {
 		XFree(vi);
@@ -1426,7 +1245,7 @@ static long get_msec(void)
 	}
 	return (tv.tv_sec - tv0.tv_sec) * 1000 + (tv.tv_usec - tv0.tv_usec) / 1000;
 }
-#endif
+#endif	/* UNIX */
 #ifdef _WIN32
 static long get_msec(void)
 {
@@ -1466,15 +1285,99 @@ static int sys_write(int fd, const void *buf, int count)
 	return write(fd, buf, count);
 }
 
+#else	/* !MINIGLUT_USE_LIBC */
+
+#ifdef __linux__
+#ifdef __x86_64__
+static void sys_exit(int status)
+{
+	asm volatile(
+		"syscall\n\t"
+		:: "a"(60), "D"(status));
+}
+static int sys_write(int fd, const void *buf, int count)
+{
+	long res;
+	asm volatile(
+		"syscall\n\t"
+		: "=a"(res)
+		: "a"(1), "D"(fd), "S"(buf), "d"(count));
+	return res;
+}
 static int sys_gettimeofday(struct timeval *tv, struct timezone *tz)
 {
-	return gettimeofday(tv, tz);
+	int res;
+	asm volatile(
+		"syscall\n\t"
+		: "=a"(res)
+		: "a"(96), "D"(tv), "S"(tz));
+	return res;
 }
+#endif	/* __x86_64__ */
+#ifdef __i386__
+static void sys_exit(int status)
+{
+	asm volatile(
+		"int $0x80\n\t"
+		:: "a"(1), "b"(status));
+}
+static int sys_write(int fd, const void *buf, int count)
+{
+	int res;
+	asm volatile(
+		"int $0x80\n\t"
+		: "=a"(res)
+		: "a"(4), "b"(fd), "c"(buf), "d"(count));
+	return res;
+}
+static int sys_gettimeofday(struct timeval *tv, struct timezone *tz)
+{
+	int res;
+	asm volatile(
+		"int $0x80\n\t"
+		: "=a"(res)
+		: "a"(78), "b"(tv), "c"(tz));
+	return res;
+}
+#endif	/* __i386__ */
+#endif	/* __linux__ */
+
+#ifdef _WIN32
+static void sys_exit(int status)
+{
+	ExitProcess(status);
+}
+static int sys_write(int fd, const void *buf, int count)
+{
+	unsigned long wrsz = 0;
+
+	HANDLE out = GetStdHandle(fd == 1 ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);
+	if(!WriteFile(out, buf, count, &wrsz, 0)) {
+		return -1;
+	}
+	return wrsz;
+}
+#endif	/* _WIN32 */
+#endif	/* !MINIGLUT_USE_LIBC */
+
+
+/* ----------------- primitives ------------------ */
+#ifdef MINIGLUT_USE_LIBC
+#include <stdlib.h>
+#include <math.h>
+
+#define mglut_sincos(a, s, c)	\
+	do { \
+		*(s) = sin(a); \
+		*(c) = cos(a); \
+	} while(0)
+
+#define mglut_atan(x)	atan(x)
 
 #else	/* !MINIGLUT_USE_LIBC */
 
 #ifdef __GNUC__
-static void mglut_sincosf(float angle, float *sptr, float *cptr)
+static void mglut_sincos(float angle, float *sptr, float *cptr)
 {
 	asm volatile(
 		"flds %2\n\t"
@@ -1502,7 +1405,7 @@ static float mglut_atan(float x)
 #endif
 
 #ifdef _MSC_VER
-static void mglut_sincosf(float angle, float *sptr, float *cptr)
+static void mglut_sincos(float angle, float *sptr, float *cptr)
 {
 	float s, c;
 	__asm {
@@ -1529,7 +1432,7 @@ static float mglut_atan(float x)
 #endif
 
 #ifdef __WATCOMC__
-#pragma aux mglut_sincosf = \
+#pragma aux mglut_sincos = \
 	"fsincos" \
 	"fstp dword ptr [edx]" \
 	"fstp dword ptr [eax]" \
@@ -1542,80 +1445,202 @@ static float mglut_atan(float x)
 	parm[8087] \
 	value[8087] \
 	modify [8087];
-#endif
-
-#ifdef __linux__
-
-#ifdef __x86_64__
-static void sys_exit(int status)
-{
-	asm volatile(
-		"syscall\n\t"
-		:: "a"(60), "D"(status));
-}
-static int sys_write(int fd, const void *buf, int count)
-{
-	long res;
-	asm volatile(
-		"syscall\n\t"
-		: "=a"(res)
-		: "a"(1), "D"(fd), "S"(buf), "d"(count));
-	return res;
-}
-static int sys_gettimeofday(struct timeval *tv, struct timezone *tz)
-{
-	int res;
-	asm volatile(
-		"syscall\n\t"
-		: "=a"(res)
-		: "a"(96), "D"(tv), "S"(tz));
-	return res;
-}
-#endif
-#ifdef __i386__
-static void sys_exit(int status)
-{
-	asm volatile(
-		"int $0x80\n\t"
-		:: "a"(1), "b"(status));
-}
-static int sys_write(int fd, const void *buf, int count)
-{
-	int res;
-	asm volatile(
-		"int $0x80\n\t"
-		: "=a"(res)
-		: "a"(4), "b"(fd), "c"(buf), "d"(count));
-	return res;
-}
-static int sys_gettimeofday(struct timeval *tv, struct timezone *tz)
-{
-	int res;
-	asm volatile(
-		"int $0x80\n\t"
-		: "=a"(res)
-		: "a"(78), "b"(tv), "c"(tz));
-	return res;
-}
-#endif
-
-#endif	/* __linux__ */
-
-#ifdef _WIN32
-static void sys_exit(int status)
-{
-	ExitProcess(status);
-}
-static int sys_write(int fd, const void *buf, int count)
-{
-	unsigned long wrsz = 0;
-
-	HANDLE out = GetStdHandle(fd == 1 ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);
-	if(!WriteFile(out, buf, count, &wrsz, 0)) {
-		return -1;
-	}
-	return wrsz;
-}
-#endif	/* _WIN32 */
+#endif	/* __WATCOMC__ */
 
 #endif	/* !MINIGLUT_USE_LIBC */
+
+#define PI	3.1415926536f
+
+void glutSolidSphere(float rad, int slices, int stacks)
+{
+	int i, j, k, gray;
+	float x, y, z, s, t, u, v, phi, theta, sintheta, costheta, sinphi, cosphi;
+	float du = 1.0f / (float)slices;
+	float dv = 1.0f / (float)stacks;
+
+	glBegin(GL_QUADS);
+	for(i=0; i<stacks; i++) {
+		v = i * dv;
+		for(j=0; j<slices; j++) {
+			u = j * du;
+			for(k=0; k<4; k++) {
+				gray = k ^ (k >> 1);
+				s = gray & 1 ? u + du : u;
+				t = gray & 2 ? v + dv : v;
+				theta = s * PI * 2.0f;
+				phi = t * PI;
+				mglut_sincos(theta, &sintheta, &costheta);
+				mglut_sincos(phi, &sinphi, &cosphi);
+				x = sintheta * sinphi;
+				y = costheta * sinphi;
+				z = cosphi;
+
+				glColor3f(s, t, 1);
+				glTexCoord2f(s, t);
+				glNormal3f(x, y, z);
+				glVertex3f(x * rad, y * rad, z * rad);
+			}
+		}
+	}
+	glEnd();
+}
+
+void glutWireSphere(float rad, int slices, int stacks)
+{
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidSphere(rad, slices, stacks);
+	glPopAttrib();
+}
+
+void glutSolidCube(float sz)
+{
+	int i, j, idx, gray, flip, rotx;
+	float vpos[3], norm[3];
+	float rad = sz * 0.5f;
+
+	glBegin(GL_QUADS);
+	for(i=0; i<6; i++) {
+		flip = i & 1;
+		rotx = i >> 2;
+		idx = (~i & 2) - rotx;
+		norm[0] = norm[1] = norm[2] = 0.0f;
+		norm[idx] = flip ^ ((i >> 1) & 1) ? -1 : 1;
+		glNormal3fv(norm);
+		vpos[idx] = norm[idx] * rad;
+		for(j=0; j<4; j++) {
+			gray = j ^ (j >> 1);
+			vpos[i & 2] = (gray ^ flip) & 1 ? rad : -rad;
+			vpos[rotx + 1] = (gray ^ (rotx << 1)) & 2 ? rad : -rad;
+			glTexCoord2f(gray & 1, gray >> 1);
+			glVertex3fv(vpos);
+		}
+	}
+	glEnd();
+}
+
+void glutWireCube(float sz)
+{
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidCube(sz);
+	glPopAttrib();
+}
+
+static void draw_cylinder(float rbot, float rtop, float height, int slices, int stacks)
+{
+	int i, j, k, gray;
+	float x, y, z, s, t, u, v, theta, phi, sintheta, costheta, sinphi, cosphi, rad;
+	float du = 1.0f / (float)slices;
+	float dv = 1.0f / (float)stacks;
+
+	rad = rbot - rtop;
+	phi = mglut_atan((rad < 0 ? -rad : rad) / height);
+	mglut_sincos(phi, &sinphi, &cosphi);
+
+	glBegin(GL_QUADS);
+	for(i=0; i<stacks; i++) {
+		v = i * dv;
+		for(j=0; j<slices; j++) {
+			u = j * du;
+			for(k=0; k<4; k++) {
+				gray = k ^ (k >> 1);
+				s = gray & 2 ? u + du : u;
+				t = gray & 1 ? v + dv : v;
+				rad = rbot + (rtop - rbot) * t;
+				theta = s * PI * 2.0f;
+				mglut_sincos(theta, &sintheta, &costheta);
+
+				x = sintheta * cosphi;
+				y = costheta * cosphi;
+				z = sinphi;
+
+				glColor3f(s, t, 1);
+				glTexCoord2f(s, t);
+				glNormal3f(x, y, z);
+				glVertex3f(sintheta * rad, costheta * rad, t * height);
+			}
+		}
+	}
+	glEnd();
+}
+
+void glutSolidCone(float base, float height, int slices, int stacks)
+{
+	draw_cylinder(base, 0, height, slices, stacks);
+}
+
+void glutWireCone(float base, float height, int slices, int stacks)
+{
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidCone(base, height, slices, stacks);
+	glPopAttrib();
+}
+
+void glutSolidCylinder(float rad, float height, int slices, int stacks)
+{
+	draw_cylinder(rad, rad, height, slices, stacks);
+}
+
+void glutWireCylinder(float rad, float height, int slices, int stacks)
+{
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidCylinder(rad, height, slices, stacks);
+	glPopAttrib();
+}
+
+void glutSolidTorus(float inner_rad, float outer_rad, int sides, int rings)
+{
+	int i, j, k, gray;
+	float x, y, z, s, t, u, v, phi, theta, sintheta, costheta, sinphi, cosphi;
+	float du = 1.0f / (float)rings;
+	float dv = 1.0f / (float)sides;
+
+	glBegin(GL_QUADS);
+	for(i=0; i<rings; i++) {
+		u = i * du;
+		for(j=0; j<sides; j++) {
+			v = j * dv;
+			for(k=0; k<4; k++) {
+				gray = k ^ (k >> 1);
+				s = gray & 1 ? u + du : u;
+				t = gray & 2 ? v + dv : v;
+				theta = s * PI * 2.0f;
+				phi = t * PI * 2.0f;
+				mglut_sincos(theta, &sintheta, &costheta);
+				mglut_sincos(phi, &sinphi, &cosphi);
+				x = sintheta * sinphi;
+				y = costheta * sinphi;
+				z = cosphi;
+
+				glColor3f(s, t, 1);
+				glTexCoord2f(s, t);
+				glNormal3f(x, y, z);
+
+				x = x * inner_rad + sintheta * outer_rad;
+				y = y * inner_rad + costheta * outer_rad;
+				z *= inner_rad;
+				glVertex3f(x, y, z);
+			}
+		}
+	}
+	glEnd();
+}
+
+void glutWireTorus(float inner_rad, float outer_rad, int sides, int rings)
+{
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidTorus(inner_rad, outer_rad, sides, rings);
+	glPopAttrib();
+}
+
+void glutSolidTeapot(float size)
+{
+}
+
+void glutWireTeapot(float size)
+{
+}
