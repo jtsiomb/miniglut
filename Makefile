@@ -4,14 +4,24 @@ bin = test
 
 CFLAGS = -pedantic -Wall -g
 
+isx86 ?= $(shell uname -m | sed 's/x86_64/x86/; s/i.86/x86/')
+
 sys ?= $(shell uname -s | sed 's/MINGW.*/mingw/')
 ifeq ($(sys), mingw)
 	obj = $(src:.c=.w32.o)
 	bin = test.exe
 
 	LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
-else
+else ifeq ($(sys)-$(isx86), Linux-x86)
 	LDFLAGS = -lX11 -lGL
+else
+	# for other UNIX or non-x86 where sys_ and trig functions are not
+	# implemented, just use libc
+	CFLAGS += -DMINIGLUT_USE_LIBC
+	LDFLAGS = -lX11 -lGL -lm
+	ifeq ($(sys), IRIX)
+		CC = gcc
+	endif
 endif
 
 $(bin): $(obj)
