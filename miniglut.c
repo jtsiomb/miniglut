@@ -38,6 +38,7 @@ static GLXContext ctx;
 static Atom xa_wm_proto, xa_wm_del_win;
 static Atom xa_net_wm_state, xa_net_wm_state_fullscr;
 static Atom xa_motif_wm_hints;
+static Atom xa_motion_event, xa_button_press_event, xa_button_release_event, xa_command_event;
 static unsigned int evmask;
 
 static int have_netwm_fullscr(void);
@@ -69,6 +70,7 @@ struct ctx_info {
 	int srgb;
 };
 
+static void cleanup(void);
 static void create_window(const char *title);
 static void get_window_pos(int *x, int *y);
 static void get_window_size(int *w, int *h);
@@ -106,7 +108,6 @@ static int quit;
 static int upd_pending;
 static int modstate;
 
-
 void glutInit(int *argc, char **argv)
 {
 #ifdef BUILD_X11
@@ -122,6 +123,11 @@ void glutInit(int *argc, char **argv)
 		xa_net_wm_state = XInternAtom(dpy, "_NET_WM_STATE", False);
 		xa_net_wm_state_fullscr = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
 	}
+
+	xa_motion_event = XInternAtom(dpy, "MotionEvent", True);
+	xa_button_press_event = XInternAtom(dpy, "ButtonPressEvent", True);
+	xa_button_release_event = XInternAtom(dpy, "ButtonReleaseEvent", True);
+	xa_command_event = XInternAtom(dpy, "CommandEvent", True);
 
 	evmask = ExposureMask | StructureNotifyMask;
 
@@ -298,7 +304,7 @@ void glutSpaceballRotateFunc(glut_cb_sbmotion func)
 	cb_sball_rotate = func;
 }
 
-void glutSpaceballBittonFunc(glut_cb_sbbutton func)
+void glutSpaceballButtonFunc(glut_cb_sbbutton func)
 {
 	cb_sball_button = func;
 }
@@ -412,7 +418,39 @@ int glutExtensionSupported(char *ext)
 
 /* --------------- UNIX/X11 implementation ----------------- */
 #ifdef BUILD_X11
+enum {
+    SPNAV_EVENT_ANY,  /* used by spnav_remove_events() */
+    SPNAV_EVENT_MOTION,
+    SPNAV_EVENT_BUTTON  /* includes both press and release */
+};
+
+struct spnav_event_motion {
+    int type;
+    int x, y, z;
+    int rx, ry, rz;
+    unsigned int period;
+    int *data;
+};
+
+struct spnav_event_button {
+    int type;
+    int press;
+    int bnum;
+};
+
+union spnav_event {
+    int type;
+    struct spnav_event_motion motion;
+    struct spnav_event_button button;
+};
+
+
 static void handle_event(XEvent *ev);
+
+static int spnav_window(Window win);
+static int spnav_event(const XEvent *xev, union spnav_event *event);
+static int spnav_remove_events(int type);
+
 
 void glutMainLoopEvent(void)
 {
@@ -425,12 +463,12 @@ void glutMainLoopEvent(void)
 	if(!upd_pending && !cb_idle) {
 		XNextEvent(dpy, &ev);
 		handle_event(&ev);
-		if(quit) return;
+		if(quit) goto end;
 	}
 	while(XPending(dpy)) {
 		XNextEvent(dpy, &ev);
 		handle_event(&ev);
-		if(quit) return;
+		if(quit) goto end;
 	}
 
 	if(cb_idle) {
@@ -440,6 +478,20 @@ void glutMainLoopEvent(void)
 	if(upd_pending && mapped) {
 		upd_pending = 0;
 		cb_display();
+	}
+
+end:
+	if(quit) {
+		cleanup();
+	}
+}
+
+static void cleanup(void)
+{
+	if(win) {
+		spnav_window(root);
+		glXMakeCurrent(dpy, 0, 0);
+		XDestroyWindow(dpy, win);
 	}
 }
 
@@ -467,6 +519,7 @@ static KeySym translate_keysym(KeySym sym)
 static void handle_event(XEvent *ev)
 {
 	KeySym sym;
+	union spnav_event sev;
 
 	switch(ev->type) {
 	case MapNotify:
@@ -487,6 +540,28 @@ static void handle_event(XEvent *ev)
 		if(ev->xclient.message_type == xa_wm_proto) {
 			if(ev->xclient.data.l[0] == xa_wm_del_win) {
 				quit = 1;
+			}
+		}
+		if(spnav_event(ev, &sev)) {
+			switch(sev.type) {
+			case SPNAV_EVENT_MOTION:
+				if(cb_sball_motion) {
+					cb_sball_motion(sev.motion.x, sev.motion.y, sev.motion.z);
+				}
+				if(cb_sball_rotate) {
+					cb_sball_rotate(sev.motion.rx, sev.motion.ry, sev.motion.rz);
+				}
+				spnav_remove_events(SPNAV_EVENT_MOTION);
+				break;
+
+			case SPNAV_EVENT_BUTTON:
+				if(cb_sball_button) {
+					cb_sball_button(sev.button.bnum + 1, sev.button.press ? GLUT_DOWN : GLUT_UP);
+				}
+				break;
+
+			default:
+				break;
 			}
 		}
 		break;
@@ -820,6 +895,8 @@ static void create_window(const char *title)
 
 	XSelectInput(dpy, win, evmask);
 
+	spnav_window(win);
+
 	glutSetWindowTitle(title);
 	glutSetIconTitle(title);
 	XSetWMProtocols(dpy, win, &xa_wm_del_win, 1);
@@ -849,6 +926,149 @@ static void get_screen_size(int *scrw, int *scrh)
 	*scrw = wattr.width;
 	*scrh = wattr.height;
 }
+
+
+/* spaceball */
+enum {
+  CMD_APP_WINDOW = 27695,
+  CMD_APP_SENS
+};
+
+static Window get_daemon_window(Display *dpy);
+static int catch_badwin(Display *dpy, XErrorEvent *err);
+
+#define SPNAV_INITIALIZED	(xa_motion_event)
+
+static int spnav_window(Window win)
+{
+	int (*prev_xerr_handler)(Display*, XErrorEvent*);
+	XEvent xev;
+	Window daemon_win;
+
+	if(!SPNAV_INITIALIZED) {
+		return -1;
+	}
+
+	if(!(daemon_win = get_daemon_window(dpy))) {
+		return -1;
+	}
+
+	prev_xerr_handler = XSetErrorHandler(catch_badwin);
+
+	xev.type = ClientMessage;
+	xev.xclient.send_event = False;
+	xev.xclient.display = dpy;
+	xev.xclient.window = win;
+	xev.xclient.message_type = xa_command_event;
+	xev.xclient.format = 16;
+	xev.xclient.data.s[0] = ((unsigned int)win & 0xffff0000) >> 16;
+	xev.xclient.data.s[1] = (unsigned int)win & 0xffff;
+	xev.xclient.data.s[2] = CMD_APP_WINDOW;
+
+	XSendEvent(dpy, daemon_win, False, 0, &xev);
+	XSync(dpy, False);
+
+	XSetErrorHandler(prev_xerr_handler);
+	return 0;
+}
+
+static Bool match_events(Display *dpy, XEvent *xev, char *arg)
+{
+	int evtype = *(int*)arg;
+
+	if(xev->type != ClientMessage) {
+		return False;
+	}
+
+	if(xev->xclient.message_type == xa_motion_event) {
+		return !evtype || evtype == SPNAV_EVENT_MOTION ? True : False;
+	}
+	if(xev->xclient.message_type == xa_button_press_event ||
+			xev->xclient.message_type == xa_button_release_event) {
+		return !evtype || evtype == SPNAV_EVENT_BUTTON ? True : False;
+	}
+	return False;
+}
+
+static int spnav_remove_events(int type)
+{
+	int rm_count = 0;
+	XEvent xev;
+	while(XCheckIfEvent(dpy, &xev, match_events, (char*)&type)) {
+		rm_count++;
+	}
+	return rm_count;
+}
+
+static int spnav_event(const XEvent *xev, union spnav_event *event)
+{
+	int i;
+	int xmsg_type;
+
+	xmsg_type = xev->xclient.message_type;
+
+	if(xmsg_type != xa_motion_event && xmsg_type != xa_button_press_event &&
+			xmsg_type != xa_button_release_event) {
+		return 0;
+	}
+
+	if(xmsg_type == xa_motion_event) {
+		event->type = SPNAV_EVENT_MOTION;
+		event->motion.data = &event->motion.x;
+
+		for(i=0; i<6; i++) {
+			event->motion.data[i] = xev->xclient.data.s[i + 2];
+		}
+		event->motion.period = xev->xclient.data.s[8];
+	} else {
+		event->type = SPNAV_EVENT_BUTTON;
+		event->button.press = xmsg_type == xa_button_press_event ? 1 : 0;
+		event->button.bnum = xev->xclient.data.s[2];
+	}
+	return event->type;
+}
+
+static int mglut_strcmp(const char *s1, const char *s2)
+{
+	while(*s1 && *s1 == *s2) {
+		s1++;
+		s2++;
+	}
+	return *s1 - *s2;
+}
+
+static Window get_daemon_window(Display *dpy)
+{
+	Window win;
+	XTextProperty wname;
+	Atom type;
+	int fmt;
+	unsigned long nitems, bytes_after;
+	unsigned char *prop;
+
+	XGetWindowProperty(dpy, root, xa_command_event, 0, 1, False, AnyPropertyType,
+			&type, &fmt, &nitems, &bytes_after, &prop);
+	if(!prop) {
+		return 0;
+	}
+
+	win = *(Window*)prop;
+	XFree(prop);
+
+	if(!XGetWMName(dpy, win, &wname) || mglut_strcmp("Magellan Window", (char*)wname.value) != 0) {
+		return 0;
+	}
+
+	return win;
+}
+
+static int catch_badwin(Display *dpy, XErrorEvent *err)
+{
+	return 0;
+}
+
+
+
 #endif	/* BUILD_X11 */
 
 
@@ -902,6 +1122,15 @@ void glutMainLoopEvent(void)
 	if(upd_pending && mapped) {
 		upd_pending = 0;
 		cb_display();
+	}
+}
+
+static void cleanup(void)
+{
+	if(win) {
+		wglMakeCurrent(dc, 0);
+		wglDeleteContext(ctx);
+		UnregisterClass("MiniGLUT", hinst);
 	}
 }
 
@@ -1071,8 +1300,7 @@ static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam
 		break;
 
 	case WM_DESTROY:
-		wglMakeCurrent(dc, 0);
-		wglDeleteContext(ctx);
+		cleanup();
 		quit = 1;
 		PostQuitMessage(0);
 		break;
@@ -1390,18 +1618,21 @@ static int sys_write(int fd, const void *buf, int count)
 #include <stdlib.h>
 #include <math.h>
 
-#define mglut_sincos(a, s, c)	\
-	do { \
-		*(s) = sin(a); \
-		*(c) = cos(a); \
-	} while(0)
+void mglut_sincos(float angle, float *sptr, float *cptr)
+{
+	*sptr = sin(angle);
+	*cptr = cos(angle);
+}
 
-#define mglut_atan(x)	atan(x)
+float mglut_atan(float x)
+{
+	return atan(x);
+}
 
 #else	/* !MINIGLUT_USE_LIBC */
 
 #ifdef __GNUC__
-static void mglut_sincos(float angle, float *sptr, float *cptr)
+void mglut_sincos(float angle, float *sptr, float *cptr)
 {
 	asm volatile(
 		"flds %2\n\t"
@@ -1413,7 +1644,7 @@ static void mglut_sincos(float angle, float *sptr, float *cptr)
 	);
 }
 
-static float mglut_atan(float x)
+float mglut_atan(float x)
 {
 	float res;
 	asm volatile(
@@ -1429,7 +1660,7 @@ static float mglut_atan(float x)
 #endif
 
 #ifdef _MSC_VER
-static void mglut_sincos(float angle, float *sptr, float *cptr)
+void mglut_sincos(float angle, float *sptr, float *cptr)
 {
 	float s, c;
 	__asm {
@@ -1442,7 +1673,7 @@ static void mglut_sincos(float angle, float *sptr, float *cptr)
 	*cptr = c;
 }
 
-static float mglut_atan(float x)
+float mglut_atan(float x)
 {
 	float res;
 	__asm {

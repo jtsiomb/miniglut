@@ -163,7 +163,7 @@ void glutMotionFunc(glut_cb_motion func);
 void glutPassiveMotionFunc(glut_cb_motion func);
 void glutSpaceballMotionFunc(glut_cb_sbmotion func);
 void glutSpaceballRotateFunc(glut_cb_sbmotion func);
-void glutSpaceballBittonFunc(glut_cb_sbbutton func);
+void glutSpaceballButtonFunc(glut_cb_sbbutton func);
 
 int glutGet(unsigned int s);
 int glutGetModifiers(void);
