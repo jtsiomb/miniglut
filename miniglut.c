@@ -554,6 +554,24 @@ void glutSwapBuffers(void)
 	glXSwapBuffers(dpy, win);
 }
 
+/* BUG:
+ * set_fullscreen_mwm removes the decorations with MotifWM hints, and then it
+ * needs to resize the window to make it fullscreen. The way it does this is by
+ * querying the size of the root window (see get_screen_size), which in the
+ * case of multi-monitor setups will be the combined size of all monitors.
+ * This is problematic; the way to solve it is to use the XRandR extension, or
+ * the Xinerama extension, to figure out the dimensions of the correct video
+ * output, which would add potentially two extension support libraries to our
+ * dependencies list.
+ * Moreover, any X installation modern enough to support XR&R will almost
+ * certainly be running a window manager supporting the EHWM
+ * _NET_WM_STATE_FULLSCREEN method (set_fullscreen_ewmh), which does not rely
+ * on manual resizing, and is used in preference if available, making this
+ * whole endeavor pointless.
+ * So I'll just leave it with set_fullscreen_mwm covering the entire
+ * multi-monitor area for now.
+ */
+
 struct mwm_hints {
 	unsigned long flags;
 	unsigned long functions;
@@ -568,14 +586,22 @@ struct mwm_hints {
 static void set_fullscreen_mwm(int fs)
 {
 	struct mwm_hints hints;
+	int scr_width, scr_height;
 
 	if(fs) {
+		get_window_pos(&prev_win_x, &prev_win_y);
+		get_window_size(&prev_win_width, &prev_win_height);
+		get_screen_size(&scr_width, &scr_height);
+
 		hints.decorations = 0;
 		hints.flags = MWM_HINTS_DECORATIONS;
 		XChangeProperty(dpy, win, xa_motif_wm_hints, xa_motif_wm_hints, 32,
 				PropModeReplace, (unsigned char*)&hints, 5);
+
+		XMoveResizeWindow(dpy, win, 0, 0, scr_width, scr_height);
 	} else {
 		XDeleteProperty(dpy, win, xa_motif_wm_hints);
+		XMoveResizeWindow(dpy, win, prev_win_x, prev_win_y, prev_win_width, prev_win_height);
 	}
 }
 
@@ -804,10 +830,8 @@ static void create_window(const char *title)
 
 static void get_window_pos(int *x, int *y)
 {
-	XWindowAttributes wattr;
-	XGetWindowAttributes(dpy, win, &wattr);
-	*x = wattr.x;
-	*y = wattr.y;
+	Window child;
+	XTranslateCoordinates(dpy, win, root, 0, 0, x, y, &child);
 }
 
 static void get_window_size(int *w, int *h)
