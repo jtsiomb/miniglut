@@ -10,3 +10,5 @@ Release/
 *.ncb
 *.opt
 *.plg
+*.a
+*.lib

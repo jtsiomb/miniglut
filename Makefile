@@ -1,5 +1,8 @@
-src = miniglut.c test.c
-obj = $(src:.c=.o)
+PREFIX = /usr/local
+
+olib = miniglut.o
+otest = test.o
+alib = libminiglut.a
 bin = test
 
 CFLAGS = -pedantic -Wall -g
@@ -8,7 +11,8 @@ isx86 ?= $(shell uname -m | sed 's/x86_64/x86/; s/i.86/x86/')
 
 sys ?= $(shell uname -s | sed 's/MINGW.*/mingw/')
 ifeq ($(sys), mingw)
-	obj = $(src:.c=.w32.o)
+	olib = miniglut.w32.o
+	otest = miniglut.w32.o
 	bin = test.exe
 
 	LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
@@ -24,15 +28,29 @@ else
 	endif
 endif
 
-$(bin): $(obj)
-	$(CC) -o $@ $(obj) $(LDFLAGS)
+$(bin): $(otest) $(alib)
+	$(CC) -o $@ $(otest) $(alib) $(LDFLAGS)
+
+$(alib): $(olib)
+	$(AR) rcs $@ $(olib)
 
 %.w32.o: %.c
 	$(CC) -o $@ $(CFLAGS) -c $<
 
 .PHONY: clean
 clean:
-	rm -f $(obj) $(bin)
+	rm -f $(alib) $(olib) $(otest) $(bin)
+
+.PHONY: install
+install: $(alib)
+	mkdir -p $(DESTDIR)$(PREFIX)/include $(DESTDIR)$(PREFIX)/lib
+	cp miniglut.h $(DESTDIR)$(PREFIX)/include/miniglut.h
+	cp $(alib) $(DESTDIR)$(PREFIX)/lib/$(alib)
+
+.PHONY: uninstall
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/include/miniglut.h
+	rm -f $(DESTDIR)$(PREFIX)/lib/$(alib)
 
 .PHONY: cross
 cross:
