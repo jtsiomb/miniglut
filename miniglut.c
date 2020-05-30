@@ -1286,7 +1286,7 @@ static unsigned int choose_pixfmt(unsigned int mode)
 	}
 	*aptr++ = 0;
 
-	while(!wglChoosePixelFormat(dc, attr, 0, 1, &pixfmt, &num_pixfmt) && samples && *samples) {
+	while((!wglChoosePixelFormat(dc, attr, 0, 1, &pixfmt, &num_pixfmt) || !num_pixfmt) && samples && *samples) {
 		*samples >>= 1;
 		if(!*samples) {
 			aptr[-3] = 0;
@@ -1336,8 +1336,8 @@ static int create_window_wglext(const char *title, int width, int height)
 	}
 	tmpdc = GetDC(tmpwin);
 
-	if(!(pixfmt = ChoosePixelFormat(dc, &tmppfd)) ||
-			!SetPixelFormat(dc, pixfmt, &tmppfd) ||
+	if(!(pixfmt = ChoosePixelFormat(tmpdc, &tmppfd)) ||
+			!SetPixelFormat(tmpdc, pixfmt, &tmppfd) ||
 			!(tmpctx = wglCreateContext(tmpdc))) {
 		goto fail;
 	}

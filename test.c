@@ -1,3 +1,4 @@
+#include <string.h>
 #include <math.h>
 #include "miniglut.h"
 
@@ -24,12 +25,33 @@ int bnstate[8];
 int anim;
 float torus_pos[3], torus_rot[4] = {0, 0, 0, 1};
 
+#ifndef GL_FRAMEBUFFER_SRGB
+#define GL_FRAMEBUFFER_SRGB	0x8db9
+#endif
+
+#ifndef GL_MULTISAMPLE
+#define GL_MULTISAMPLE 0x809d
+#endif
 
 int main(int argc, char **argv)
 {
+	int i, test_aa = 0, test_srgb = 0;
+	unsigned int mode = GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE;
+
+	for(i=1; i<argc; i++) {
+		if(strcmp(argv[i], "-ms") == 0) {
+			test_aa = 1;
+		} else if(strcmp(argv[i], "-srgb") == 0) {
+			test_srgb = 1;
+		}
+	}
+
+	if(test_aa) mode |= GLUT_MULTISAMPLE;
+	if(test_srgb) mode |= GLUT_SRGB;
+
 	glutInit(&argc, argv);
 	glutInitWindowSize(1024, 768);
-	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
+	glutInitDisplayMode(mode);
 	glutCreateWindow("miniglut test");
 
 	glutDisplayFunc(display);
@@ -45,6 +67,13 @@ int main(int argc, char **argv)
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
+
+	if(test_aa) {
+		glEnable(GL_MULTISAMPLE);
+	}
+	if(test_srgb) {
+		glEnable(GL_FRAMEBUFFER_SRGB);
+	}
 
 	glutMainLoop();
 	return 0;
