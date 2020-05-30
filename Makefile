@@ -12,7 +12,8 @@ isx86 ?= $(shell uname -m | sed 's/x86_64/x86/; s/i.86/x86/')
 sys ?= $(shell uname -s | sed 's/MINGW.*/mingw/')
 ifeq ($(sys), mingw)
 	olib = miniglut.w32.o
-	otest = miniglut.w32.o
+	otest = test.w32.o
+	alib = libminiglut-w32.a
 	bin = test.exe
 
 	LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
@@ -45,12 +46,12 @@ clean:
 install: $(alib)
 	mkdir -p $(DESTDIR)$(PREFIX)/include $(DESTDIR)$(PREFIX)/lib
 	cp miniglut.h $(DESTDIR)$(PREFIX)/include/miniglut.h
-	cp $(alib) $(DESTDIR)$(PREFIX)/lib/$(alib)
+	cp $(alib) $(DESTDIR)$(PREFIX)/lib/libminiglut.a
 
 .PHONY: uninstall
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/include/miniglut.h
-	rm -f $(DESTDIR)$(PREFIX)/lib/$(alib)
+	rm -f $(DESTDIR)$(PREFIX)/lib/libminiglut.a
 
 .PHONY: cross
 cross:
