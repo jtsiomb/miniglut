@@ -1219,51 +1219,158 @@ void glutSetCursor(int cidx)
 	}
 }
 
+#define WGL_DRAW_TO_WINDOW	0x2001
+#define WGL_SUPPORT_OPENGL	0x2010
+#define WGL_DOUBLE_BUFFER	0x2011
+#define WGL_STEREO			0x2012
+#define WGL_PIXEL_TYPE		0x2013
+#define WGL_COLOR_BITS		0x2014
+#define WGL_RED_BITS		0x2015
+#define WGL_GREEN_BITS		0x2017
+#define WGL_BLUE_BITS		0x2019
+#define WGL_ALPHA_BITS		0x201b
+#define WGL_ACCUM_BITS		0x201d
+#define WGL_DEPTH_BITS		0x2022
+#define WGL_STENCIL_BITS	0x2023
 
-static void create_window(const char *title)
+#define WGL_TYPE_RGBA		0x202b
+#define WGL_TYPE_COLORINDEX	0x202c
+
+#define WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB	0x20a9
+#define WGL_SAMPLE_BUFFERS_ARB				0x2041
+#define WGL_SAMPLES_ARB						0x2042
+
+static PROC wglChoosePixelFormat;
+static PROC wglGetPixelFormatAttribiv;
+
+#define ATTR(a, v) \
+	do { *aptr++ = (a); *aptr++ = (v); } while(0)
+
+static unsigned int choose_pixfmt(unsigned int mode)
 {
+	unsigned int num_pixfmt, pixfmt = 0;
+	int attr[32] = { WGL_DRAW_TO_WINDOW, 1, WGL_SUPPORT_OPENGL, 1 };
+
+	int *aptr = attr;
+	int *samples = 0;
+
+	if(mode & GLUT_DOUBLE) {
+		ATTR(WGL_DOUBLE_BUFFER, 1);
+	}
+
+	ATTR(WGL_PIXEL_TYPE, mode & GLUT_INDEX ? WGL_TYPE_COLORINDEX : WGL_TYPE_RGBA);
+	ATTR(WGL_COLOR_BITS, 8);
+	if(mode & GLUT_ALPHA) {
+		ATTR(WGL_ALPHA_BITS, 4);
+	}
+	if(mode & GLUT_DEPTH) {
+		ATTR(WGL_DEPTH_BITS, 16);
+	}
+	if(mode & GLUT_STENCIL) {
+		ATTR(WGL_STENCIL_BITS, 1);
+	}
+	if(mode & GLUT_ACCUM) {
+		ATTR(WGL_ACCUM_BITS, 1);
+	}
+	if(mode & GLUT_STEREO) {
+		ATTR(WGL_STEREO, 1);
+	}
+	if(mode & GLUT_SRGB) {
+		ATTR(WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, 1);
+	}
+	if(mode & GLUT_MULTISAMPLE) {
+		ATTR(WGL_SAMPLE_BUFFERS_ARB, 1);
+		*aptr++ = WGL_SAMPLES_ARB;
+		samples = aptr;
+		*aptr++ = 32;
+	}
+	*aptr++ = 0;
+
+	while(!wglChoosePixelFormat(dc, attr, 0, 1, &pixfmt, &num_pixfmt) && samples && *samples) {
+		*samples >>= 1;
+		if(!*samples) {
+			aptr[-3] = 0;
+		}
+	}
+	return pixfmt;
+}
+
+static PIXELFORMATDESCRIPTOR tmppfd = {
+	sizeof tmppfd, 1, PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+	PFD_TYPE_RGBA, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 8, 0,
+	PFD_MAIN_PLANE, 0, 0, 0, 0
+};
+#define TMPCLASS	"TempMiniGLUT"
+
+#define GETATTR(attr, vptr) \
+	do { \
+		int gattr = attr; \
+		wglGetPixelFormatAttribiv(dc, pixfmt, 0, 1, &gattr, vptr); \
+	} while(0)
+
+static int create_window_wglext(const char *title, int width, int height)
+{
+	WNDCLASSEX wc = {0};
+	HWND tmpwin = 0;
+	HDC tmpdc = 0;
+	HGLRC tmpctx = 0;
 	int pixfmt;
-	PIXELFORMATDESCRIPTOR pfd = {0};
-	RECT rect;
 
-	rect.left = init_x;
-	rect.top = init_y;
-	rect.right = init_x + init_width;
-	rect.bottom = init_y + init_height;
-	AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, 0);
+	/* create a temporary window and GL context, just to query and retrieve
+	 * the wglChoosePixelFormatEXT function
+	 */
+	wc.cbSize = sizeof wc;
+	wc.hbrBackground = GetStockObject(BLACK_BRUSH);
+	wc.hCursor = LoadCursor(0, IDC_ARROW);
+	wc.hIcon = wc.hIconSm = LoadIcon(0, IDI_APPLICATION);
+	wc.hInstance = hinst;
+	wc.lpfnWndProc = DefWindowProc;
+	wc.lpszClassName = TMPCLASS;
+	wc.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+	if(!RegisterClassEx(&wc)) {
+		return 0;
+	}
+	if(!(tmpwin = CreateWindow(TMPCLASS, "temp", WS_OVERLAPPEDWINDOW, 0, 0,
+					width, height, 0, 0, hinst, 0))) {
+		goto fail;
+	}
+	tmpdc = GetDC(tmpwin);
 
-	if(!(win = CreateWindow("MiniGLUT", title, WS_OVERLAPPEDWINDOW, rect.left, rect.top,
-				rect.right - rect.left, rect.bottom - rect.top, 0, 0, hinst, 0))) {
+	if(!(pixfmt = ChoosePixelFormat(dc, &tmppfd)) ||
+			!SetPixelFormat(dc, pixfmt, &tmppfd) ||
+			!(tmpctx = wglCreateContext(tmpdc))) {
+		goto fail;
+	}
+	wglMakeCurrent(tmpdc, tmpctx);
+
+	if(!(wglChoosePixelFormat = wglGetProcAddress("wglChoosePixelFormatARB"))) {
+		if(!(wglChoosePixelFormat = wglGetProcAddress("wglChoosePixelFormatEXT"))) {
+			goto fail;
+		}
+		if(!(wglGetPixelFormatAttribiv = wglGetProcAddress("wglGetPixelFormatAttribivEXT"))) {
+			goto fail;
+		}
+	} else {
+		if(!(wglGetPixelFormatAttribiv = wglGetProcAddress("wglGetPixelFormatAttribivARB"))) {
+			goto fail;
+		}
+	}
+	wglMakeCurrent(0, 0);
+	wglDeleteContext(tmpctx);
+	DestroyWindow(tmpwin);
+	UnregisterClass(TMPCLASS, hinst);
+
+	/* create the real window and context */
+	if(!(win = CreateWindow("MiniGLUT", title, WS_OVERLAPPEDWINDOW, init_x,
+					init_y, width, height, 0, 0, hinst, 0))) {
 		panic("Failed to create window\n");
 	}
 	dc = GetDC(win);
 
-	pfd.nSize = sizeof pfd;
-	pfd.nVersion = 1;
-	pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-	if(init_mode & GLUT_STEREO) {
-		pfd.dwFlags |= PFD_STEREO;
-	}
-	pfd.iPixelType = init_mode & GLUT_INDEX ? PFD_TYPE_COLORINDEX : PFD_TYPE_RGBA;
-	pfd.cColorBits = 24;
-	if(init_mode & GLUT_ALPHA) {
-		pfd.cAlphaBits = 8;
-	}
-	if(init_mode & GLUT_ACCUM) {
-		pfd.cAccumBits = 24;
-	}
-	if(init_mode & GLUT_DEPTH) {
-		pfd.cDepthBits = 24;
-	}
-	if(init_mode & GLUT_STENCIL) {
-		pfd.cStencilBits = 8;
-	}
-	pfd.iLayerType = PFD_MAIN_PLANE;
-
-	if(!(pixfmt = ChoosePixelFormat(dc, &pfd))) {
+	if(!(pixfmt = choose_pixfmt(init_mode))) {
 		panic("Failed to find suitable pixel format\n");
 	}
-	if(!SetPixelFormat(dc, pixfmt, &pfd)) {
+	if(!SetPixelFormat(dc, pixfmt, &tmppfd)) {
 		panic("Failed to set the selected pixel format\n");
 	}
 	if(!(ctx = wglCreateContext(dc))) {
@@ -1271,16 +1378,97 @@ static void create_window(const char *title)
 	}
 	wglMakeCurrent(dc, ctx);
 
-	DescribePixelFormat(dc, pixfmt, sizeof pfd, &pfd);
-	ctx_info.rsize = pfd.cRedBits;
-	ctx_info.gsize = pfd.cGreenBits;
-	ctx_info.bsize = pfd.cBlueBits;
-	ctx_info.asize = pfd.cAlphaBits;
-	ctx_info.zsize = pfd.cDepthBits;
-	ctx_info.ssize = pfd.cStencilBits;
-	ctx_info.dblbuf = pfd.dwFlags & PFD_DOUBLEBUFFER ? 1 : 0;
-	ctx_info.samples = 1;	/* TODO */
-	ctx_info.srgb = 0;		/* TODO */
+	GETATTR(WGL_RED_BITS, &ctx_info.rsize);
+	GETATTR(WGL_GREEN_BITS, &ctx_info.gsize);
+	GETATTR(WGL_BLUE_BITS, &ctx_info.bsize);
+	GETATTR(WGL_ALPHA_BITS, &ctx_info.asize);
+	GETATTR(WGL_DEPTH_BITS, &ctx_info.zsize);
+	GETATTR(WGL_STENCIL_BITS, &ctx_info.ssize);
+	GETATTR(WGL_DOUBLE_BUFFER, &ctx_info.dblbuf);
+	GETATTR(WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, &ctx_info.srgb);
+	GETATTR(WGL_SAMPLES_ARB, &ctx_info.samples);
+	return 0;
+
+fail:
+	if(tmpctx) {
+		wglMakeCurrent(0, 0);
+		wglDeleteContext(tmpctx);
+	}
+	if(tmpwin) {
+		DestroyWindow(tmpwin);
+	}
+	UnregisterClass(TMPCLASS, hinst);
+	return -1;
+}
+
+
+static void create_window(const char *title)
+{
+	int pixfmt;
+	PIXELFORMATDESCRIPTOR pfd = {0};
+	RECT rect;
+	int width, height;
+
+	rect.left = init_x;
+	rect.top = init_y;
+	rect.right = init_x + init_width;
+	rect.bottom = init_y + init_height;
+	AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, 0);
+	width = rect.right - rect.left;
+	height = rect.bottom - rect.top;
+
+	if(create_window_wglext(title, width, height) == -1) {
+
+		if(!(win = CreateWindow("MiniGLUT", title, WS_OVERLAPPEDWINDOW,
+					rect.left, rect.top, width, height, 0, 0, hinst, 0))) {
+			panic("Failed to create window\n");
+		}
+		dc = GetDC(win);
+
+		pfd.nSize = sizeof pfd;
+		pfd.nVersion = 1;
+		pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+		if(init_mode & GLUT_STEREO) {
+			pfd.dwFlags |= PFD_STEREO;
+		}
+		pfd.iPixelType = init_mode & GLUT_INDEX ? PFD_TYPE_COLORINDEX : PFD_TYPE_RGBA;
+		pfd.cColorBits = 24;
+		if(init_mode & GLUT_ALPHA) {
+			pfd.cAlphaBits = 8;
+		}
+		if(init_mode & GLUT_ACCUM) {
+			pfd.cAccumBits = 24;
+		}
+		if(init_mode & GLUT_DEPTH) {
+			pfd.cDepthBits = 24;
+		}
+		if(init_mode & GLUT_STENCIL) {
+			pfd.cStencilBits = 8;
+		}
+		pfd.iLayerType = PFD_MAIN_PLANE;
+
+		if(!(pixfmt = ChoosePixelFormat(dc, &pfd))) {
+			panic("Failed to find suitable pixel format\n");
+		}
+		if(!SetPixelFormat(dc, pixfmt, &pfd)) {
+			panic("Failed to set the selected pixel format\n");
+		}
+		if(!(ctx = wglCreateContext(dc))) {
+			panic("Failed to create the OpenGL context\n");
+		}
+		wglMakeCurrent(dc, ctx);
+
+		DescribePixelFormat(dc, pixfmt, sizeof pfd, &pfd);
+		ctx_info.rsize = pfd.cRedBits;
+		ctx_info.gsize = pfd.cGreenBits;
+		ctx_info.bsize = pfd.cBlueBits;
+		ctx_info.asize = pfd.cAlphaBits;
+		ctx_info.zsize = pfd.cDepthBits;
+		ctx_info.ssize = pfd.cStencilBits;
+		ctx_info.dblbuf = pfd.dwFlags & PFD_DOUBLEBUFFER ? 1 : 0;
+		ctx_info.samples = 0;
+		ctx_info.srgb = 0;
+	}
 
 	ShowWindow(win, 1);
 	SetForegroundWindow(win);
