@@ -9,7 +9,7 @@ CFLAGS = -pedantic -Wall -g
 
 isx86 ?= $(shell uname -m | sed 's/x86_64/x86/; s/i.86/x86/')
 
-sys ?= $(shell uname -s | sed 's/MINGW.*/mingw/')
+sys ?= $(shell uname -s | sed 's/MINGW.*/mingw/; s/IRIX.*/IRIX/')
 ifeq ($(sys), mingw)
 	olib = miniglut.w32.o
 	otest = test.w32.o
@@ -17,15 +17,17 @@ ifeq ($(sys), mingw)
 	bin = test.exe
 
 	LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
-else ifeq ($(sys)-$(isx86), Linux-x86)
-	LDFLAGS = -lX11 -lGL
 else
-	# for other UNIX or non-x86 where sys_ and trig functions are not
-	# implemented, just use libc
-	CFLAGS += -DMINIGLUT_USE_LIBC
-	LDFLAGS = -lX11 -lGL -lm
-	ifeq ($(sys), IRIX)
-		CC = gcc
+	ifeq ($(sys)-$(isx86), Linux-x86)
+		LDFLAGS = -lX11 -lGL
+	else
+		# for other UNIX or non-x86 where sys_ and trig functions are not
+		# implemented, just use libc
+		CFLAGS += -DMINIGLUT_USE_LIBC
+		LDFLAGS = -lX11 -lGL -lm
+		ifeq ($(sys), IRIX)
+			CC = gcc
+		endif
 	endif
 endif
 
