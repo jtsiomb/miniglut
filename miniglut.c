@@ -40,6 +40,7 @@ static Atom xa_net_wm_state, xa_net_wm_state_fullscr;
 static Atom xa_motif_wm_hints;
 static Atom xa_motion_event, xa_button_press_event, xa_button_release_event, xa_command_event;
 static unsigned int evmask;
+static Cursor blank_cursor;
 
 static int have_netwm_fullscr(void);
 
@@ -111,6 +112,9 @@ static int modstate;
 void glutInit(int *argc, char **argv)
 {
 #ifdef BUILD_X11
+	Pixmap blankpix = 0;
+	XColor xcol;
+
 	if(!(dpy = XOpenDisplay(0))) {
 		panic("Failed to connect to the X server\n");
 	}
@@ -130,6 +134,11 @@ void glutInit(int *argc, char **argv)
 	xa_command_event = XInternAtom(dpy, "CommandEvent", True);
 
 	evmask = ExposureMask | StructureNotifyMask;
+
+	if((blankpix = XCreateBitmapFromData(dpy, root, (char*)&blankpix, 1, 1))) {
+		blank_cursor = XCreatePixmapCursor(dpy, blankpix, blankpix, &xcol, &xcol, 0, 0);
+		XFreePixmap(dpy, blankpix);
+	}
 
 #endif
 #ifdef BUILD_WIN32
@@ -779,7 +788,8 @@ void glutSetCursor(int cidx)
 	case GLUT_CURSOR_INHERIT:
 		break;
 	case GLUT_CURSOR_NONE:
-		/* TODO */
+		cur = blank_cursor;
+		break;
 	default:
 		return;
 	}
@@ -1715,6 +1725,11 @@ static void panic(const char *msg)
 
 
 #ifdef MINIGLUT_USE_LIBC
+#include <stdlib.h>
+#ifdef __unix__
+#include <unistd.h>
+#endif
+
 static void sys_exit(int status)
 {
 	exit(status);
