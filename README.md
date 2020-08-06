@@ -1,7 +1,7 @@
 MiniGLUT
 ========
 
-![logo](http://nuclear.mutantstargoat.com/sw/miniglut/img/miniglut_logo_sm.png)
+![logo](http://nuclear.mutantstargoat.com/sw/miniglut/img/miniglut_logo_sm_alpha.png)
 
 MiniGLUT is a subset of GLUT (or more precisely a subset of FreeGLUT)
 implemented in a single C source file, without any non-essential dependencies,
