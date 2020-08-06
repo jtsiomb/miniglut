@@ -124,6 +124,13 @@ void display(void)
 	glutSolidCone(1.1, 2, 16, 2);
 	glPopMatrix();
 
+	glPushMatrix();
+	glTranslatef(0, -0.5, 2.5);
+	glFrontFace(GL_CW);
+	glutSolidTeapot(1.0);
+	glFrontFace(GL_CCW);
+	glPopMatrix();
+
 	glBegin(GL_QUADS);
 	glNormal3f(0, 1, 0);
 	glVertex3f(-5, -1.3, 5);
