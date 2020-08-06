@@ -2270,6 +2270,10 @@ void glutSolidTeapot(float size)
 
 void glutWireTeapot(float size)
 {
+	glPushAttrib(GL_POLYGON_BIT);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glutSolidTeapot(size);
+	glPopAttrib();
 }
 
 
