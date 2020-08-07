@@ -2300,7 +2300,7 @@ static void bezier_patch(float *res, float *cp, float u, float v)
 static float rsqrt(float x)
 {
 	float xhalf = x * 0.5f;
-	int32_t i = *(int32_t*)&x;
+	int i = *(int*)&x;
 	i = 0x5f3759df - (i >> 1);
 	x = *(float*)&i;
 	x = x * (1.5f - xhalf * x * x);
