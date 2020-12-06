@@ -123,9 +123,9 @@ void glutInit(int *argc, char **argv)
 	xa_wm_proto = XInternAtom(dpy, "WM_PROTOCOLS", False);
 	xa_wm_del_win = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
 	xa_motif_wm_hints = XInternAtom(dpy, "_MOTIF_WM_HINTS", False);
+	xa_net_wm_state_fullscr = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
 	if(have_netwm_fullscr()) {
 		xa_net_wm_state = XInternAtom(dpy, "_NET_WM_STATE", False);
-		xa_net_wm_state_fullscr = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
 	}
 
 	xa_motion_event = XInternAtom(dpy, "MotionEvent", True);
