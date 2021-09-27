@@ -116,6 +116,12 @@ enum {
 #define GLUT_ACTIVE_CTRL	4
 #define GLUT_ACTIVE_ALT		8
 
+enum {
+	GLUT_KEY_REPEAT_OFF,
+	GLUT_KEY_REPEAT_ON
+};
+#define GLUT_KEY_REPEAT_DEFAULT GLUT_KEY_REPEAT_ON
+
 typedef void (*glut_cb)(void);
 typedef void (*glut_cb_reshape)(int x, int y);
 typedef void (*glut_cb_state)(int state);
@@ -148,6 +154,9 @@ void glutFullScreen(void);
 void glutSetWindowTitle(const char *title);
 void glutSetIconTitle(const char *title);
 void glutSetCursor(int cursor);
+
+void glutIgnoreKeyRepeat(int ignore);
+void glutSetKeyRepeat(int repmode);
 
 void glutIdleFunc(glut_cb func);
 void glutDisplayFunc(glut_cb func);

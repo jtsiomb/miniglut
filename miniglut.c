@@ -88,6 +88,7 @@ static unsigned int init_mode;
 
 static struct ctx_info ctx_info;
 static int cur_cursor = GLUT_CURSOR_INHERIT;
+static int ignore_key_repeat;
 
 static glut_cb cb_display;
 static glut_cb cb_idle;
@@ -203,6 +204,11 @@ void glutMainLoop(void)
 void glutPostRedisplay(void)
 {
 	upd_pending = 1;
+}
+
+void glutIgnoreKeyRepeat(int ignore)
+{
+	ignore_key_repeat = ignore;
 }
 
 #define UPD_EVMASK(x) \
@@ -580,7 +586,22 @@ static void handle_event(XEvent *ev)
 		break;
 
 	case KeyPress:
+		if(0) {
 	case KeyRelease:
+			if(ignore_key_repeat && XEventsQueued(dpy, QueuedAfterReading)) {
+				XEvent next;
+				XPeekEvent(dpy, &next);
+
+				if(next.type == KeyPress && next.xkey.keycode == ev->xkey.keycode &&
+						next.xkey.time == ev->xkey.time) {
+					/* this is a key-repeat event, ignore the release and consume
+					 * the following press
+					 */
+					XNextEvent(dpy, &next);
+					break;
+				}
+			}
+		}
 		modstate = ev->xkey.state & (ShiftMask | ControlMask | Mod1Mask);
 		if(!(sym = XLookupKeysym(&ev->xkey, 0))) {
 			break;
@@ -796,6 +817,15 @@ void glutSetCursor(int cidx)
 
 	XDefineCursor(dpy, win, cur);
 	cur_cursor = cidx;
+}
+
+void glutSetKeyRepeat(int repmode)
+{
+	if(repmode) {
+		XAutoRepeatOn(dpy);
+	} else {
+		XAutoRepeatOff(dpy);
+	}
 }
 
 static XVisualInfo *choose_visual(unsigned int mode)
@@ -1227,6 +1257,10 @@ void glutSetCursor(int cidx)
 		SetCursor(LoadCursor(0, IDC_ARROW));
 		ShowCursor(1);
 	}
+}
+
+void glutSetKeyRepeat(int repmode)
+{
 }
 
 #define WGL_DRAW_TO_WINDOW	0x2001
