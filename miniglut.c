@@ -715,18 +715,20 @@ static int have_netwm_fullscr(void)
 	int fmt;
 	long offs = 0;
 	unsigned long i, count, rem;
-	Atom prop[8], type;
+	Atom *prop, type;
 	Atom xa_net_supported = XInternAtom(dpy, "_NET_SUPPORTED", False);
 
 	do {
 		XGetWindowProperty(dpy, root, xa_net_supported, offs, 8, False, AnyPropertyType,
-				&type, &fmt, &count, &rem, (unsigned char**)prop);
+				&type, &fmt, &count, &rem, (unsigned char**)&prop);
 
 		for(i=0; i<count; i++) {
 			if(prop[i] == xa_net_wm_state_fullscr) {
+				XFree(prop);
 				return 1;
 			}
 		}
+		XFree(prop);
 		offs += count;
 	} while(rem > 0);
 
@@ -1095,9 +1097,11 @@ static Window get_daemon_window(Display *dpy)
 	win = *(Window*)prop;
 	XFree(prop);
 
+	wname.value = 0;
 	if(!XGetWMName(dpy, win, &wname) || mglut_strcmp("Magellan Window", (char*)wname.value) != 0) {
-		return 0;
+		win = 0;
 	}
+	XFree(wname.value);
 
 	return win;
 }
