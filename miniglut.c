@@ -1,6 +1,6 @@
 /*
 MiniGLUT - minimal GLUT subset without dependencies
-Copyright (C) 2020  John Tsiombikas <nuclear@member.fsf.org>
+Copyright (C) 2020-2022  John Tsiombikas <nuclear@member.fsf.org>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ static int have_netwm_fullscr(void);
 #include <windows.h>
 #define BUILD_WIN32
 
-static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam, LPARAM lparam);
+static LRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam, LPARAM lparam);
 
 static HINSTANCE hinst;
 static HWND win;
@@ -1268,6 +1268,7 @@ void glutSetKeyRepeat(int repmode)
 }
 
 #define WGL_DRAW_TO_WINDOW	0x2001
+#define WGL_ACCELERATION	0x2003
 #define WGL_SUPPORT_OPENGL	0x2010
 #define WGL_DOUBLE_BUFFER	0x2011
 #define WGL_STEREO			0x2012
@@ -1280,6 +1281,7 @@ void glutSetKeyRepeat(int repmode)
 #define WGL_ACCUM_BITS		0x201d
 #define WGL_DEPTH_BITS		0x2022
 #define WGL_STENCIL_BITS	0x2023
+#define WGL_FULL_ACCELERATION	0x2027
 
 #define WGL_TYPE_RGBA		0x202b
 #define WGL_TYPE_COLORINDEX	0x202c
@@ -1297,9 +1299,11 @@ static PROC wglGetPixelFormatAttribiv;
 static unsigned int choose_pixfmt(unsigned int mode)
 {
 	unsigned int num_pixfmt, pixfmt = 0;
-	int attr[32] = { WGL_DRAW_TO_WINDOW, 1, WGL_SUPPORT_OPENGL, 1 };
+	int attr[32] = { WGL_DRAW_TO_WINDOW, 1, WGL_SUPPORT_OPENGL, 1,
+		WGL_ACCELERATION, WGL_FULL_ACCELERATION };
+	float fattr[2] = {0, 0};
 
-	int *aptr = attr;
+	int *aptr = attr + 6;
 	int *samples = 0;
 
 	if(mode & GLUT_DOUBLE) {
@@ -1334,7 +1338,7 @@ static unsigned int choose_pixfmt(unsigned int mode)
 	}
 	*aptr++ = 0;
 
-	while((!wglChoosePixelFormat(dc, attr, 0, 1, &pixfmt, &num_pixfmt) || !num_pixfmt) && samples && *samples) {
+	while((!wglChoosePixelFormat(dc, attr, fattr, 1, &pixfmt, &num_pixfmt) || !num_pixfmt) && samples && *samples) {
 		*samples >>= 1;
 		if(!*samples) {
 			aptr[-3] = 0;
@@ -1343,6 +1347,7 @@ static unsigned int choose_pixfmt(unsigned int mode)
 	return pixfmt;
 }
 
+static PIXELFORMATDESCRIPTOR pfd;
 static PIXELFORMATDESCRIPTOR tmppfd = {
 	sizeof tmppfd, 1, PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
 	PFD_TYPE_RGBA, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 8, 0,
@@ -1418,7 +1423,7 @@ static int create_window_wglext(const char *title, int width, int height)
 	if(!(pixfmt = choose_pixfmt(init_mode))) {
 		panic("Failed to find suitable pixel format\n");
 	}
-	if(!SetPixelFormat(dc, pixfmt, &tmppfd)) {
+	if(!SetPixelFormat(dc, pixfmt, &pfd)) {
 		panic("Failed to set the selected pixel format\n");
 	}
 	if(!(ctx = wglCreateContext(dc))) {
@@ -1453,7 +1458,6 @@ fail:
 static void create_window(const char *title)
 {
 	int pixfmt;
-	PIXELFORMATDESCRIPTOR pfd = {0};
 	RECT rect;
 	int width, height;
 
@@ -1465,6 +1469,30 @@ static void create_window(const char *title)
 	width = rect.right - rect.left;
 	height = rect.bottom - rect.top;
 
+	memset(&pfd, 0, sizeof pfd);
+	pfd.nSize = sizeof pfd;
+	pfd.nVersion = 1;
+	pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+	if(init_mode & GLUT_STEREO) {
+		pfd.dwFlags |= PFD_STEREO;
+	}
+	pfd.iPixelType = init_mode & GLUT_INDEX ? PFD_TYPE_COLORINDEX : PFD_TYPE_RGBA;
+	pfd.cColorBits = 24;
+	if(init_mode & GLUT_ALPHA) {
+		pfd.cAlphaBits = 8;
+	}
+	if(init_mode & GLUT_ACCUM) {
+		pfd.cAccumBits = 24;
+	}
+	if(init_mode & GLUT_DEPTH) {
+		pfd.cDepthBits = 24;
+	}
+	if(init_mode & GLUT_STENCIL) {
+		pfd.cStencilBits = 8;
+	}
+	pfd.iLayerType = PFD_MAIN_PLANE;
+
+
 	if(create_window_wglext(title, width, height) == -1) {
 
 		if(!(win = CreateWindow("MiniGLUT", title, WS_OVERLAPPEDWINDOW,
@@ -1472,28 +1500,6 @@ static void create_window(const char *title)
 			panic("Failed to create window\n");
 		}
 		dc = GetDC(win);
-
-		pfd.nSize = sizeof pfd;
-		pfd.nVersion = 1;
-		pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-		if(init_mode & GLUT_STEREO) {
-			pfd.dwFlags |= PFD_STEREO;
-		}
-		pfd.iPixelType = init_mode & GLUT_INDEX ? PFD_TYPE_COLORINDEX : PFD_TYPE_RGBA;
-		pfd.cColorBits = 24;
-		if(init_mode & GLUT_ALPHA) {
-			pfd.cAlphaBits = 8;
-		}
-		if(init_mode & GLUT_ACCUM) {
-			pfd.cAccumBits = 24;
-		}
-		if(init_mode & GLUT_DEPTH) {
-			pfd.cDepthBits = 24;
-		}
-		if(init_mode & GLUT_STENCIL) {
-			pfd.cStencilBits = 8;
-		}
-		pfd.iLayerType = PFD_MAIN_PLANE;
 
 		if(!(pixfmt = ChoosePixelFormat(dc, &pfd))) {
 			panic("Failed to find suitable pixel format\n");
@@ -1525,7 +1531,7 @@ static void create_window(const char *title)
 	reshape_pending = 1;
 }
 
-static HRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam, LPARAM lparam)
+static LRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam, LPARAM lparam)
 {
 	static int mouse_x, mouse_y;
 	int x, y, key;
@@ -1764,7 +1770,9 @@ static void panic(const char *msg)
 
 #ifdef MINIGLUT_USE_LIBC
 #include <stdlib.h>
-#ifdef __unix__
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
 #endif
 
