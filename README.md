@@ -26,9 +26,9 @@ compatibility issues, since it doesn't call any C library functions whatsoever.
 
 Download
 --------
-Latest release (v0.3):
-  - https://github.com/jtsiomb/miniglut/releases/download/v0.3/miniglut-0.3.tar.gz
-  - https://github.com/jtsiomb/miniglut/releases/download/v0.3/miniglut-0.3.zip
+Latest release (v0.4):
+  - https://github.com/jtsiomb/miniglut/releases/download/v0.4/miniglut-0.4.tar.gz
+  - https://github.com/jtsiomb/miniglut/releases/download/v0.4/miniglut-0.4.zip
 
 Both archives are identical, choose whichever is more convenient.
 
@@ -54,7 +54,7 @@ limitations.
 
 License
 -------
-Copyright (C) 2020 John Tsiombikas <nuclear@member.fsf.org>
+Copyright (C) 2020-2022 John Tsiombikas <nuclear@member.fsf.org>
 
 MiniGLUT is free software. Feel free to use, modify and/or redistribute it,
 under the terms of the GNU General Public License v3, or at your option any
