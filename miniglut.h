@@ -30,7 +30,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #endif	/* MSVC */
 
 #endif
+
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
 #include <GL/gl.h>
+#endif
 
 /* mode flags for glutInitDisplayMode */
 #define GLUT_RGB			0

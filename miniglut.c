@@ -56,10 +56,52 @@ static HWND win;
 static HDC dc;
 static HGLRC ctx;
 
+#elif defined(__APPLE__)
+
+#import <Cocoa/Cocoa.h>
+
+@interface OpenGLView : NSOpenGLView {}
+-(id) initWithFrame: (NSRect) frame pixelFormat: (NSOpenGLPixelFormat*) pf;
+-(void) reshape;
+-(void) keyDown: (NSEvent*) ev;
+-(void) keyUp: (NSEvent*) ev;
+-(void) mouseDown: (NSEvent*) ev;
+-(void) mouseUp: (NSEvent*) ev;
+-(void) rightMouseDown: (NSEvent*) ev;
+-(void) rightMouseUp: (NSEvent*) ev;
+-(void) otherMouseDown: (NSEvent*) ev;
+-(void) otherMouseUp: (NSEvent*) ev;
+-(void) mouseDragged: (NSEvent*) ev;
+-(void) rightMouseDragged: (NSEvent*) ev;
+-(void) otherMouseDragged: (NSEvent*) ev;
+-(BOOL) acceptsFirstResponder;
+@end
+
+@interface AppDelegate : NSObject {}
+-(void) applicationWillFinishLaunching: (NSNotification*) notification;
+-(void) applicationDidFinishLaunching: (NSNotification*) notification;
+-(BOOL) applicationShouldTerminate: (NSApplication*) app;
+-(BOOL) applicationShouldTerminateAfterLastWindowClosed: (NSApplication*) app;
+-(void) applicationWillTerminate: (NSNotification*) notification;
+@end
+
+@interface WinDelegate : NSObject <NSWindowDelegate> {}
+-(id) init;
+-(void) dealloc;
+-(void) windowDidExpose: (NSNotification*) notification;
+-(void) windowDidResize: (NSNotification*) notification;
+-(void) windowShouldClose: (id) win;
+-(void) windowWillClose: (NSNotification*) notification;
+@end
+
+static NSWindow *win;
+static OpenGLView *view;
+static NSOpenGLContext *ctx;
+static NSAutoreleasePool *global_pool;
+
 #else
 #error unsupported platform
 #endif
-#include <GL/gl.h>
 #include "miniglut.h"
 
 struct ctx_info {
@@ -164,6 +206,13 @@ void glutInit(int *argc, char **argv)
 		init_x >>= 3;
 		init_y >>= 3;
 	}
+#endif
+#ifdef BUILD_OSX
+	AppDelegate *delegate;
+	global_pool = [[NSAutoReleasePool alloc] init];
+	[NSApplication sharedApplication];
+	delegate = [[AppDelegate alloc] init];
+	[NSApp setDelegate: delegate];
 #endif
 }
 
@@ -1717,6 +1766,161 @@ static void get_screen_size(int *scrw, int *scrh)
 	*scrh = GetSystemMetrics(SM_CYSCREEN);
 }
 #endif	/* BUILD_WIN32 */
+
+/* --------------- MacOS X implementation ----------------- */
+#ifdef BUILD_OSX
+void glutMainLoopEvent(void)
+{
+}
+
+static void cleanup(void)
+{
+	if(win) {
+		[win close];
+	}
+	quit = 1;
+	[NSApp terminate: nil];
+}
+
+static void create_window(const char *title)
+{
+	NSAutoreleasePool *pool;
+	WinDelegate *delegate;
+	NSRect rect;
+	NSOpenGLPixelFormat *pf;
+	NSOpenGLPixelFormatAttribute attr[32];
+	unsigned int style;
+	int next_id = 1;
+	NSString *nsstr;
+
+	pool = [[NSAutoreleasePool alloc] init];
+
+	nsstr = [[NSString alloc] initWithCString: title encoding: NSASCIIStringEncoding];
+
+	fill_attr(attr, init_mode);
+	pf = [[[NSOpenGLPixelFormat alloc] initWithAttributes: attr] autorelease];
+	view = [[OpenGLView alloc] initWithFrame: rect pixelFormat: pf];
+
+	rect.origin.x = init_x;
+	rect.origin.y = init_y;
+	rect.size.width = init_width;
+	rect.size.height = init_height;
+
+	style = NSTitledWindowMask | NSClosableWindowMask | NSMinaturizableWindowMask |
+		NSResizableWindowMask;
+
+	win = [[NSWindow alloc] initWithContentRect: rect styleMask: style
+		backing: NSBackingStoreBuffered defer: YES];
+
+	delegate = [[WinDelegate alloc] init];
+
+	[win setDelegate: delegate];
+	[win setTitle: nsstr];
+	[win setReleasedWhenClosed: YES];
+	[win setContentView: view];
+	[win makeFirstResponder: view];
+	[win makeKeyAndOrderFront: nil];
+	[view release];
+	[nsstr release];
+
+	delegate->win = win;
+
+	ctx = [view openGLContext];
+	upd_pending = 1;
+
+	[pool drain];
+}
+
+void glutSwapBuffers(void)
+{
+	[win flushBuffer];
+}
+
+@implementation OpenGLView
+
+-(id) initWithFrame: (NSRect) frame pixelFormat: (NSOpenGLPixelFormat*) pf
+{
+	self = [super initWithFrame: frame pixelFormat: pf];
+	return self;
+}
+
+-(void) drawRect: (NSRect) rect
+{
+	upd_pending = 0;
+	cb_display();
+}
+
+-(void) reshape
+{
+	NSSize sz;
+
+	sz = [self bounds].size;
+
+	if(cb_reshape && (sz.width != win_width || sz.height != win_height)) {
+		reshape_pending = 0;
+		win_width = sz.width;
+		win_height = sz.height;
+		cb_reshape(sz.width, sz.height);
+	}
+}
+
+-(void) keyDown: (NSEvent*) ev { handle_key(ev, 1); }
+-(void) keyUp: (NSEvent*) ev { handle_key(ev, 0); }
+-(void) mouseDown: (NSEvent*) ev { handle_mouse(ev, 1); }
+-(void) mouseUp: (NSEvent*) ev { handle_mouse(ev, 0); }
+-(void) rightMouseDown: (NSEvent*) ev { handle_mouse(ev, 1); }
+-(void) rightMouseUp: (NSEvent*) ev { handle_mouse(ev, 0); }
+-(void) otherMouseDown: (NSEvent*) ev { handle_mouse(ev, 1); }
+-(void) otherMouseUp: (NSEvent*) ev { handle_mouse(ev, 0); }
+-(void) mouseDragged: (NSEvent*) ev { handle_motion(ev); }
+-(void) rightMouseDragged: (NSEvent*) ev { handle_motion(ev); }
+-(void) otherMouseDragged: (NSEvent*) ev { handle_motion(ev); }
+-(BOOL) acceptsFirstResponder { return YES; }
+@end
+
+@implementation AppDelegate
+-(void) applicationWillFinishLaunching: (NSNotification*) notification { }
+-(void) applicationDidFinishLaunching: (NSNotification*) notification { }
+-(BOOL) applicationShouldTerminate: (NSApplication*) app { return NSTerminateNow; }
+-(BOOL) applicationShouldTerminateAfterLastWindowClosed: (NSApplication*) app { return YES; }
+
+-(void) applicationWillTerminate: (NSNotification*) notification
+{
+	/*[NSApp setDelegate: nil];
+	[global_pool drain];*/
+}
+@end
+
+@implementation WinDelegate
+-(id) init
+{
+	self = [super init];
+	return self;
+}
+
+-(void) dealloc
+{
+	[super dealloc];
+}
+
+-(void) windowDidExpose: (NSNotification*) notification { }
+-(void) windowDidResize: (NSNotification*) notification { }
+
+-(BOOL) windowShouldClose: (id) win
+{
+	cleanup();
+	quit = 1;
+	return YES;
+}
+
+-(void) windowWillClose: (NSNotification*) notification
+{
+	/*[NSApp terminate: nil];*/
+}
+@end
+
+
+#endif	/* BUILD_OSX */
 
 #if defined(__unix__) || defined(__APPLE__)
 #include <sys/time.h>

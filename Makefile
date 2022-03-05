@@ -10,23 +10,31 @@ CFLAGS = -pedantic -Wall -g
 isx86 ?= $(shell uname -m | sed 's/x86_64/x86/; s/i.86/x86/')
 
 sys ?= $(shell uname -s | sed 's/MINGW.*/mingw/; s/IRIX.*/IRIX/')
-ifeq ($(sys), mingw)
-	olib = miniglut.w32.o
-	otest = test.w32.o
-	alib = libminiglut-w32.a
-	bin = test.exe
+ifeq ($(sys), Darwin)
+	olib = miniglut.osx.o
+	# I don't know nor care how to avoid linking libc on MacOS X
+	CFLAGS += -Wno-deprecated-declarations -DMINIGLUT_USE_LIBC
+	LDFLAGS = -framework OpenGL -framework Cocoa
 
-	LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
 else
-	ifeq ($(sys)-$(isx86), Linux-x86)
-		LDFLAGS = -lX11 -lGL
+	ifeq ($(sys), mingw)
+		olib = miniglut.w32.o
+		otest = test.w32.o
+		alib = libminiglut-w32.a
+		bin = test.exe
+
+		LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
 	else
-		# for other UNIX or non-x86 where sys_ and trig functions are not
-		# implemented, just use libc
-		CFLAGS += -DMINIGLUT_USE_LIBC
-		LDFLAGS = -lX11 -lGL -lm
-		ifeq ($(sys), IRIX)
-			CC = gcc
+		ifeq ($(sys)-$(isx86), Linux-x86)
+			LDFLAGS = -lX11 -lGL
+		else
+			# for other UNIX or non-x86 where sys_ and trig functions are not
+			# implemented, just use libc
+			CFLAGS += -DMINIGLUT_USE_LIBC
+			LDFLAGS = -lX11 -lGL -lm
+			ifeq ($(sys), IRIX)
+				CC = gcc
+			endif
 		endif
 	endif
 endif
@@ -39,6 +47,9 @@ $(alib): $(olib)
 
 %.w32.o: %.c
 	$(CC) -o $@ $(CFLAGS) -c $<
+
+%.osx.o: %.c
+	$(CC) -o $@ -x objective-c $(CFLAGS) -c $<
 
 .PHONY: clean
 clean:
