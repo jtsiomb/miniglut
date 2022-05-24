@@ -1669,6 +1669,13 @@ static int translate_vkey(int vkey)
 	case VK_UP: return GLUT_KEY_UP;
 	case VK_RIGHT: return GLUT_KEY_RIGHT;
 	case VK_DOWN: return GLUT_KEY_DOWN;
+	case VK_OEM_1: return ';';
+	case VK_OEM_2: return '/';
+	case VK_OEM_3: return '`';
+	case VK_OEM_4: return '[';
+	case VK_OEM_5: return '\\';
+	case VK_OEM_6: return ']';
+	case VK_OEM_7: return '\'';
 	default:
 		break;
 	}
