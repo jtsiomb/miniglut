@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#if defined(__unix__)
+#if defined(unix) || defined(__unix__)
 
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
@@ -846,9 +846,9 @@ static XVisualInfo *choose_visual(unsigned int mode)
 		*aptr++ = 1;
 	} else {
 		*aptr++ = GLX_RGBA;
-		*aptr++ = GLX_RED_SIZE; *aptr++ = 4;
-		*aptr++ = GLX_GREEN_SIZE; *aptr++ = 4;
-		*aptr++ = GLX_BLUE_SIZE; *aptr++ = 4;
+		*aptr++ = GLX_RED_SIZE; *aptr++ = 1;
+		*aptr++ = GLX_GREEN_SIZE; *aptr++ = 1;
+		*aptr++ = GLX_BLUE_SIZE; *aptr++ = 1;
 	}
 	if(mode & GLUT_ALPHA) {
 		*aptr++ = GLX_ALPHA_SIZE;
@@ -1725,7 +1725,7 @@ static void get_screen_size(int *scrw, int *scrh)
 }
 #endif	/* BUILD_WIN32 */
 
-#if defined(__unix__) || defined(__APPLE__)
+#if defined(unix) || defined(__unix__) || defined(__APPLE__)
 #include <sys/time.h>
 
 #ifdef MINIGLUT_USE_LIBC
