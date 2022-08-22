@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include "miniglut.h"
@@ -24,6 +25,8 @@ int mouse_x, mouse_y;
 int bnstate[8];
 int anim;
 float torus_pos[3], torus_rot[4] = {0, 0, 0, 1};
+int teapot, torus, cone, sphere;
+long nframes;
 
 #ifndef GL_FRAMEBUFFER_SRGB
 #define GL_FRAMEBUFFER_SRGB	0x8db9
@@ -50,7 +53,7 @@ int main(int argc, char **argv)
 	if(test_srgb) mode |= GLUT_SRGB;
 
 	glutInit(&argc, argv);
-	glutInitWindowSize(1024, 768);
+	glutInitWindowSize(800, 600);
 	glutInitDisplayMode(mode);
 	glutCreateWindow("miniglut test");
 
@@ -74,6 +77,26 @@ int main(int argc, char **argv)
 	if(test_srgb) {
 		glEnable(GL_FRAMEBUFFER_SRGB);
 	}
+
+	torus = glGenLists(1);
+	glNewList(torus, GL_COMPILE);
+	glutSolidTorus(0.3, 1, 16, 24);
+	glEndList();
+
+	cone = glGenLists(1);
+	glNewList(cone, GL_COMPILE);
+	glutSolidCone(1.1, 2, 16, 2);
+	glEndList();
+
+	sphere = glGenLists(1);
+	glNewList(sphere, GL_COMPILE);
+	glutSolidSphere(0.4, 16, 8);
+	glEndList();
+
+	teapot = glGenLists(1);
+	glNewList(teapot, GL_COMPILE);
+	glutSolidTeapot(1.0);
+	glEndList();
 
 	glutMainLoop();
 	return 0;
@@ -106,10 +129,10 @@ void display(void)
 		glRotatef(tm / 10.0f, 1, 0, 0);
 		glRotatef(tm / 10.0f, 0, 1, 0);
 	}
-	glutSolidTorus(0.3, 1, 16, 24);
+	glCallList(torus);
 	glPopMatrix();
 
-	glutSolidSphere(0.4, 16, 8);
+	glCallList(sphere);
 
 	glPushMatrix();
 	glTranslatef(torus_pos[0] - 2.5, torus_pos[1], torus_pos[2]);
@@ -121,13 +144,13 @@ void display(void)
 	glPushMatrix();
 	glTranslatef(2.5, -1, 0);
 	glRotatef(-90, 1, 0, 0);
-	glutSolidCone(1.1, 2, 16, 2);
+	glCallList(cone);
 	glPopMatrix();
 
 	glPushMatrix();
 	glTranslatef(0, -0.5, 2.5);
 	glFrontFace(GL_CW);
-	glutSolidTeapot(1.0);
+	glCallList(teapot);
 	glFrontFace(GL_CCW);
 	glPopMatrix();
 
@@ -140,6 +163,7 @@ void display(void)
 	glEnd();
 
 	glutSwapBuffers();
+	nframes++;
 }
 
 #define ZNEAR	0.5f
@@ -157,6 +181,7 @@ void keypress(unsigned char key, int x, int y)
 {
 	static int fullscr;
 	static int prev_xsz, prev_ysz;
+	static long start_msec;
 
 	switch(key) {
 	case 27:
@@ -168,6 +193,15 @@ void keypress(unsigned char key, int x, int y)
 		anim ^= 1;
 		glutIdleFunc(anim ? idle : 0);
 		glutPostRedisplay();
+
+		if(anim) {
+			start_msec = glutGet(GLUT_ELAPSED_TIME);
+			nframes = 0;
+		} else {
+			long tm = glutGet(GLUT_ELAPSED_TIME) - start_msec;
+			long fps = (nframes * 100000) / tm;
+			printf("framerate: %ld.%ld fps\n", fps / 100, fps % 100);
+		}
 		break;
 
 	case '\n':
