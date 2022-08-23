@@ -856,7 +856,7 @@ static XVisualInfo *choose_visual(unsigned int mode)
 	}
 	if(mode & GLUT_DEPTH) {
 		*aptr++ = GLX_DEPTH_SIZE;
-		*aptr++ = 16;
+		*aptr++ = 8;
 	}
 	if(mode & GLUT_STENCIL) {
 		*aptr++ = GLX_STENCIL_SIZE;
