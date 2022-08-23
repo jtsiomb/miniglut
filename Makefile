@@ -19,7 +19,8 @@ ifeq ($(sys), mingw)
 	LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
 else
 	ifeq ($(sys)-$(isx86), Linux-x86)
-		LDFLAGS = -lX11 -lGL
+		CFLAGS += -I/usr/X11R6/include
+		LDFLAGS = -L/usr/X11R6/lib -lX11 -lGL
 	else
 		# for other UNIX or non-x86 where sys_ and trig functions are not
 		# implemented, just use libc

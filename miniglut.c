@@ -33,6 +33,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 static Display *dpy;
 static Window win, root;
+static Colormap cmap;
+static int cmap_size;
 static int scr;
 static GLXContext ctx;
 static Atom xa_wm_proto, xa_wm_del_win;
@@ -366,6 +368,8 @@ int glutGet(unsigned int s)
 		return ctx_info.srgb;
 	case GLUT_WINDOW_CURSOR:
 		return cur_cursor;
+	case GLUT_WINDOW_COLORMAP_SIZE:
+		return cmap_size;
 	case GLUT_SCREEN_WIDTH:
 		get_screen_size(&x, &y);
 		return x;
@@ -821,6 +825,43 @@ void glutSetCursor(int cidx)
 	cur_cursor = cidx;
 }
 
+void glutSetColor(int idx, float r, float g, float b)
+{
+	XColor color;
+
+	if(idx >= 0 && idx < cmap_size) {
+		color.pixel = idx;
+		color.red = (unsigned short)(r * 65535.0f);
+		color.green = (unsigned short)(g * 65535.0f);
+		color.blue = (unsigned short)(b * 65535.0f);
+		color.flags = DoRed | DoGreen | DoBlue;
+		XStoreColor(dpy, cmap, &color);
+	}
+}
+
+float glutGetColor(int idx, int comp)
+{
+	XColor color;
+
+	if(idx < 0 || idx >= cmap_size) {
+		return -1.0f;
+	}
+
+	color.pixel = idx;
+	XQueryColor(dpy, cmap, &color);
+	switch(comp) {
+	case GLUT_RED:
+		return color.red / 65535.0f;
+	case GLUT_GREEN:
+		return color.green / 65535.0f;
+	case GLUT_BLUE:
+		return color.blue / 65535.0f;
+	default:
+		break;
+	}
+	return -1.0f;
+}
+
 void glutSetKeyRepeat(int repmode)
 {
 	if(repmode) {
@@ -924,13 +965,21 @@ static void create_window(const char *title)
 	glXGetConfig(dpy, vi, GLX_SAMPLES_ARB, &ctx_info.samples);
 	glXGetConfig(dpy, vi, GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB, &ctx_info.srgb);
 
+	if(!(cmap = XCreateColormap(dpy, root, vi->visual, mode & GLUT_INDEX ? AllocAll : AllocNone))) {
+		XFree(vi);
+		glXDestroyContext(dpy, ctx);
+		panic("Failed to create colormap\n");
+	}
+	cmap_size = GLUT_INDEX ? vi->colormap_size : 0;
+
 	xattr.background_pixel = BlackPixel(dpy, scr);
-	xattr.colormap = XCreateColormap(dpy, root, vi->visual, AllocNone);
+	xattr.colormap = cmap;
 	xattr_mask = CWBackPixel | CWColormap | CWBackPixmap | CWBorderPixel;
 	if(!(win = XCreateWindow(dpy, root, init_x, init_y, init_width, init_height, 0,
 			vi->depth, InputOutput, vi->visual, xattr_mask, &xattr))) {
 		XFree(vi);
 		glXDestroyContext(dpy, ctx);
+		XFreeColormap(dpy, cmap);
 		panic("Failed to create window\n");
 	}
 	XFree(vi);
@@ -1261,6 +1310,17 @@ void glutSetCursor(int cidx)
 		SetCursor(LoadCursor(0, IDC_ARROW));
 		ShowCursor(1);
 	}
+}
+
+void glutSetColor(int idx, float r, float g, float b)
+{
+	/* TODO */
+}
+
+float glutGetColor(int idx, int comp)
+{
+	/* TODO */
+	return 0;
 }
 
 void glutSetKeyRepeat(int repmode)

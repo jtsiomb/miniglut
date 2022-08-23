@@ -84,7 +84,14 @@ enum {
 	GLUT_INIT_WINDOW_Y,
 	GLUT_INIT_WINDOW_WIDTH,
 	GLUT_INIT_WINDOW_HEIGHT,
-	GLUT_ELAPSED_TIME
+	GLUT_ELAPSED_TIME,
+	GLUT_WINDOW_COLORMAP_SIZE,
+};
+
+enum {
+	GLUT_RED,
+	GLUT_GREEN,
+	GLUT_BLUE
 };
 
 enum {
@@ -154,6 +161,8 @@ void glutFullScreen(void);
 void glutSetWindowTitle(const char *title);
 void glutSetIconTitle(const char *title);
 void glutSetCursor(int cursor);
+void glutSetColor(int idx, float r, float g, float b);
+float glutGetColor(int idx, int comp);
 
 void glutIgnoreKeyRepeat(int ignore);
 void glutSetKeyRepeat(int repmode);
