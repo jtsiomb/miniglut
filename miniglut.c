@@ -88,7 +88,6 @@ static void get_screen_size(int *scrw, int *scrh);
 
 static long get_msec(void);
 static void panic(const char *msg);
-static void warn(const char *msg);
 static void sys_exit(int status);
 static int sys_write(int fd, const void *buf, int count);
 
@@ -1682,13 +1681,11 @@ ctxdone:
 				logpal->palPalEntry[i].peFlags = PC_NOCOLLAPSE;
 			}
 
-			if(!(cmap = CreatePalette(logpal))) {
-				warn("Failed to create RGB 332 palette on palettized mode. Colors will be wrong\n");
-			} else {
+			if((cmap = CreatePalette(logpal))) {
 				SelectPalette(dc, cmap, 0);
 				RealizePalette(dc);
+				cmap_size = 256;
 			}
-			cmap_size = 256;
 		}
 	}
 
@@ -1947,13 +1944,6 @@ static void panic(const char *msg)
 	while(*end) end++;
 	sys_write(2, msg, end - msg);
 	sys_exit(1);
-}
-
-static void warn(const char *msg)
-{
-	const char *end = msg;
-	while(*end) end++;
-	sys_write(2, msg, end - msg);
 }
 
 
