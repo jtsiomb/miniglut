@@ -26,9 +26,9 @@ compatibility issues, since it doesn't call any C library functions whatsoever.
 
 Download
 --------
-Latest release (v0.4):
-  - https://github.com/jtsiomb/miniglut/releases/download/v0.4/miniglut-0.4.tar.gz
-  - https://github.com/jtsiomb/miniglut/releases/download/v0.4/miniglut-0.4.zip
+Latest release (v0.5):
+  - https://github.com/jtsiomb/miniglut/releases/download/v0.5/miniglut-0.5.tar.gz
+  - https://github.com/jtsiomb/miniglut/releases/download/v0.5/miniglut-0.5.zip
 
 Both archives are identical, choose whichever is more convenient.
 
