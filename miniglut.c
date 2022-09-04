@@ -57,6 +57,8 @@ static HINSTANCE hinst;
 static HWND win;
 static HDC dc;
 static HGLRC ctx;
+static HPALETTE cmap;
+static int cmap_size;
 
 #else
 #error unsupported platform
@@ -81,6 +83,7 @@ static void get_screen_size(int *scrw, int *scrh);
 
 static long get_msec(void);
 static void panic(const char *msg);
+static void warn(const char *msg);
 static void sys_exit(int status);
 static int sys_write(int fd, const void *buf, int count);
 
@@ -1314,13 +1317,49 @@ void glutSetCursor(int cidx)
 
 void glutSetColor(int idx, float r, float g, float b)
 {
-	/* TODO */
+	PALETTEENTRY col;
+
+	if(idx < 0 || idx >= 256 || !cmap) {
+		return;
+	}
+
+	col.peRed = (int)(r * 255.0f);
+	col.peGreen = (int)(g * 255.0f);
+	col.peBlue = (int)(b * 255.0f);
+	col.peFlags = PC_NOCOLLAPSE;
+
+	SetPaletteEntries(cmap, idx, 1, &col);
+
+	if(dc) {
+		UnrealizeObject(cmap);
+		SelectPalette(dc, cmap, 0);
+		RealizePalette(dc);
+	}
 }
 
 float glutGetColor(int idx, int comp)
 {
-	/* TODO */
-	return 0;
+	PALETTEENTRY col;
+
+	if(idx < 0 || idx >= 256 || !cmap) {
+		return -1.0f;
+	}
+
+	if(!GetPaletteEntries(cmap, idx, 1, &col)) {
+		return -1.0f;
+	}
+
+	switch(comp) {
+	case GLUT_RED:
+		return col.peRed / 255.0f;
+	case GLUT_GREEN:
+		return col.peGreen / 255.0f;
+	case GLUT_BLUE:
+		return col.peBlue / 255.0f;
+	default:
+		break;
+	}
+	return -1.0f;
 }
 
 void glutSetKeyRepeat(int repmode)
@@ -1371,7 +1410,7 @@ static unsigned int choose_pixfmt(unsigned int mode)
 	}
 
 	ATTR(WGL_PIXEL_TYPE, mode & GLUT_INDEX ? WGL_TYPE_COLORINDEX : WGL_TYPE_RGBA);
-	ATTR(WGL_COLOR_BITS, 8);
+	ATTR(WGL_COLOR_BITS, mode & GLUT_INDEX ? 8 : 24);
 	if(mode & GLUT_ALPHA) {
 		ATTR(WGL_ALPHA_BITS, 4);
 	}
@@ -1427,7 +1466,9 @@ static int create_window_wglext(const char *title, int width, int height)
 	HWND tmpwin = 0;
 	HDC tmpdc = 0;
 	HGLRC tmpctx = 0;
-	int pixfmt;
+	int i, pixfmt, curbpp;
+	char palbuf[sizeof(LOGPALETTE) + 255 * sizeof(PALETTEENTRY)];
+	LOGPALETTE *logpal;
 
 	/* create a temporary window and GL context, just to query and retrieve
 	 * the wglChoosePixelFormatEXT function
@@ -1500,6 +1541,53 @@ static int create_window_wglext(const char *title, int width, int height)
 	GETATTR(WGL_DOUBLE_BUFFER, &ctx_info.dblbuf);
 	GETATTR(WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, &ctx_info.srgb);
 	GETATTR(WGL_SAMPLES_ARB, &ctx_info.samples);
+
+	if(init_mode & GLUT_INDEX) {
+		logpal = (LOGPALETTE*)palbuf;
+
+		GetSystemPaletteEntries(dc, 0, 256, logpal->palPalEntry);
+
+		logpal->palVersion = 0x300;
+		logpal->palNumEntries = 256;
+
+		if(!(cmap = CreatePalette(logpal))) {
+			panic("Failed to create palette in indexed mode");
+		}
+		SelectPalette(dc, cmap, 0);
+		RealizePalette(dc);
+
+		cmap_size = 256;
+	} else {
+		if((curbpp = GetDeviceCaps(dc, BITSPIXEL) * GetDeviceCaps(dc, PLANES)) <= 8) {
+			/* for RGB mode in 8bpp displays we also need to set up a palette
+			 * with RGB 332 colors
+			 */
+			logpal = (LOGPALETTE*)palbuf;
+
+			logpal->palVersion = 0x300;
+			logpal->palNumEntries = 256;
+
+			for(i=0; i<256; i++) {
+				int r = i & 7;
+				int g = (i >> 3) & 7;
+				int b = (i >> 5) & 3;
+
+				logpal->palPalEntry[i].peRed = (r << 5) | (r << 2) | (r >> 1);
+				logpal->palPalEntry[i].peGreen = (g << 5) | (g << 2) | (g >> 1);
+				logpal->palPalEntry[i].peBlue = (b << 6) | (b << 4) | (b << 2) | b;
+				logpal->palPalEntry[i].peFlags = PC_NOCOLLAPSE;
+			}
+
+			if(!(cmap = CreatePalette(logpal))) {
+				warn("Failed to create RGB 332 palette on palettized mode. Colors will be wrong\n");
+			} else {
+				SelectPalette(dc, cmap, 0);
+				RealizePalette(dc);
+			}
+			cmap_size = 256;
+		}
+	}
+
 	return 0;
 
 fail:
@@ -1536,8 +1624,13 @@ static void create_window(const char *title)
 	if(init_mode & GLUT_STEREO) {
 		pfd.dwFlags |= PFD_STEREO;
 	}
-	pfd.iPixelType = init_mode & GLUT_INDEX ? PFD_TYPE_COLORINDEX : PFD_TYPE_RGBA;
-	pfd.cColorBits = 24;
+	if(init_mode & GLUT_INDEX) {
+		pfd.iPixelType = PFD_TYPE_RGBA;
+		pfd.cColorBits = 8;
+	} else {
+		pfd.iPixelType = PFD_TYPE_COLORINDEX;
+		pfd.cColorBits = 24;
+	}
 	if(init_mode & GLUT_ALPHA) {
 		pfd.cAlphaBits = 8;
 	}
@@ -1832,6 +1925,13 @@ static void panic(const char *msg)
 	while(*end) end++;
 	sys_write(2, msg, end - msg);
 	sys_exit(1);
+}
+
+static void warn(const char *msg)
+{
+	const char *end = msg;
+	while(*end) end++;
+	sys_write(2, msg, end - msg);
 }
 
 
