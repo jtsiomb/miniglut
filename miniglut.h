@@ -162,6 +162,7 @@ void glutSetWindowTitle(const char *title);
 void glutSetIconTitle(const char *title);
 void glutSetCursor(int cursor);
 void glutSetColor(int idx, float r, float g, float b);
+void glutWarpPointer(int x, int y);
 float glutGetColor(int idx, int comp);
 
 void glutIgnoreKeyRepeat(int ignore);

@@ -832,6 +832,11 @@ void glutSetCursor(int cidx)
 	cur_cursor = cidx;
 }
 
+void glutWarpPointer(int x, int y)
+{
+	XWarpPointer(dpy, None, win, 0, 0, 0, 0, x, y);
+}
+
 void glutSetColor(int idx, float r, float g, float b)
 {
 	XColor color;
@@ -1317,6 +1322,11 @@ void glutSetCursor(int cidx)
 		SetCursor(LoadCursor(0, IDC_ARROW));
 		ShowCursor(1);
 	}
+}
+
+void glutWarpPointer(int x, int y)
+{
+	SetCursorPos(x, y);
 }
 
 void glutSetColor(int idx, float r, float g, float b)
