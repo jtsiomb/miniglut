@@ -1,0 +1,35 @@
+name: GNU/Linux build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install libgl-dev libx11-dev
+
+    - name: build
+      run: make
+
+    - name: package
+      run: |
+        mkdir miniglut-gnulinux64
+        cp libminiglut.a miniglut-gnulinux64
+        cp test miniglut-gnulinux64
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: miniglut-gnulinux64
+        path: miniglut-gnulinux64
+
+# vi:ts=2 sts=2 sw=2 expandtab:

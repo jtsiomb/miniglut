@@ -3,6 +3,10 @@ MiniGLUT
 
 ![logo](http://nuclear.mutantstargoat.com/sw/miniglut/img/miniglut_logo_sm_alpha.png)
 
+![GNU/Linux build status](https://github.com/jtsiomb/miniglut/actions/workflows/build_gnulinux.yml/badge.svg)
+![Windows MinGW build status](https://github.com/jtsiomb/miniglut/actions/workflows/build_win_mingw.yml/badge.svg)
+![Windows MSVC6 build status](https://github.com/jtsiomb/miniglut/actions/workflows/build_win_msvc6.yml/badge.svg)
+
 MiniGLUT is a subset of GLUT (or more precisely a subset of FreeGLUT)
 implemented in a single C source file, without any non-essential dependencies,
 not even the C library.
