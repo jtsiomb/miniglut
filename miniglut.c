@@ -119,6 +119,8 @@ static int quit;
 static int upd_pending;
 static int modstate;
 
+static int has_sball, sball_nbuttons;
+
 void glutInit(int *argc, char **argv)
 {
 #ifdef BUILD_X11
@@ -399,6 +401,30 @@ int glutGet(unsigned int s)
 		break;
 	}
 	return 0;
+}
+
+int glutDeviceGet(unsigned int x)
+{
+	switch(x) {
+	case GLUT_HAS_KEYBOARD:
+	case GLUT_HAS_MOUSE:
+		return 1;
+	case GLUT_NUM_MOUSE_BUTTONS:
+		return 3;
+	case GLUT_HAS_SPACEBALL:
+		return has_sball;
+	case GLUT_NUM_SPACEBALL_BUTTONS:
+		return sball_nbuttons;
+	case GLUT_HAS_DIAL_AND_BUTTON_BOX:
+	case GLUT_HAS_TABLET:
+	case GLUT_NUM_BUTTON_BOX_BUTTONS:
+	case GLUT_NUM_DIALS:
+	case GLUT_NUM_TABLET_BUTTONS:
+		return 0;
+	default:
+		break;
+	}
+	return -1;
 }
 
 int glutGetModifiers(void)
@@ -1053,8 +1079,11 @@ static int spnav_window(Window win)
 	}
 
 	if(!(daemon_win = get_daemon_window(dpy))) {
+		has_sball = sball_nbuttons = 0;
 		return -1;
 	}
+	has_sball = 1;
+	sball_nbuttons = 2;
 
 	prev_xerr_handler = XSetErrorHandler(catch_badwin);
 
@@ -1169,6 +1198,7 @@ static Window get_daemon_window(Display *dpy)
 
 static int catch_badwin(Display *dpy, XErrorEvent *err)
 {
+	has_sball = sball_nbuttons = 0;
 	return 0;
 }
 
@@ -1181,6 +1211,9 @@ static int catch_badwin(Display *dpy, XErrorEvent *err)
 #ifdef BUILD_WIN32
 static int reshape_pending;
 
+static void init_sball(void);
+static void shutdown_sball(void);
+static int handle_6dof(MSG *msg);
 static void update_modkeys(void);
 static int translate_vkey(int vkey);
 static void handle_mbutton(int bn, int st, WPARAM wparam, LPARAM lparam);
@@ -1210,13 +1243,17 @@ void glutMainLoopEvent(void)
 
 	if(!upd_pending && !cb_idle) {
 		GetMessage(&msg, 0, 0, 0);
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
+		if(!handle_6dof(&msg)) {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
 		if(quit) return;
 	}
 	while(PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
+		if(!handle_6dof(&msg)) {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
 		if(quit) return;
 	}
 
@@ -1232,6 +1269,8 @@ void glutMainLoopEvent(void)
 
 static void cleanup(void)
 {
+	shutdown_sball();
+
 	if(win) {
 		wglMakeCurrent(dc, 0);
 		wglDeleteContext(ctx);
@@ -1710,6 +1749,8 @@ ctxdone:
 		}
 	}
 
+	init_sball();
+
 	upd_pending = 1;
 	reshape_pending = 1;
 }
@@ -1916,6 +1957,153 @@ static void get_screen_size(int *scrw, int *scrh)
 	*scrw = GetSystemMetrics(SM_CXSCREEN);
 	*scrh = GetSystemMetrics(SM_CYSCREEN);
 }
+
+
+/* ---- 3DxWare SDK stuff for spaceballs ---- */
+#define SI_EVENT	1
+
+enum SpwRetVal { SPW_NO_ERROR, SPW_ERROR, SI_BAD_HANDLE, SI_BAD_ID, SI_BAD_VALUE, SI_IS_EVENT };
+typedef enum { SI_BUTTON_EVENT = 1, SI_MOTION_EVENT, SI_COMBO_EVENT, SI_ZERO_EVENT } SiEventType;
+typedef struct { unsigned char whocares[300]; } SiOpenData;
+typedef struct { UINT msg; WPARAM wParam; LPARAM lParam; } SiGetEventData;
+typedef struct { unsigned int last, current, pressed, released; } SiButtonData;
+typedef struct { SiButtonData bData; long mData[6]; long period; } SiSpwData;
+
+typedef struct {
+	char firmware[128];
+	int devType, numButtons, numDegrees;
+	long canBeep;
+	int majorVersion, minorVersion;
+} SiDevInfo;
+
+typedef struct {
+	int type;
+	union {
+		SiSpwData spwData;
+		unsigned char eventsize[5120];	/* from SI_KEY_MAXBUF array in SiKeyboardData */
+	} u;
+} SiSpwEvent;
+
+typedef enum SpwRetVal (*si_init_func)(void);
+typedef void (*si_term_func)(void);
+typedef void *(*si_open_func)(char*, int, void*, int, SiOpenData*);
+typedef void (*si_open_win_init_func)(SiOpenData*, HWND);
+typedef enum SpwRetVal (*si_close_func)(void*);
+typedef enum SpwRetVal (*si_get_dev_info_func)(void*, SiDevInfo*);
+typedef enum SpwRetVal (*si_getevent_func)(void*, int, SiGetEventData*, SiSpwEvent*);
+typedef void (*si_getev_win_init_func)(SiGetEventData*, UINT, WPARAM, LPARAM);
+
+static si_init_func SiInitialize;
+static si_term_func SiTerminate;
+static si_open_func SiOpen;
+static si_open_win_init_func SiOpenWinInit;
+static si_close_func SiClose;
+static si_get_dev_info_func SiGetDeviceInfo;
+static si_getevent_func SiGetEvent;
+static si_getev_win_init_func SiGetEventWinInit;
+
+static void *siappdll;
+static void *sidev;
+
+static void init_sball(void)
+{
+	SiOpenData odat;
+	SiDevInfo devinfo;
+
+	if(!siappdll && !(siappdll = LoadLibrary("siappdll.dll"))) {
+		return;
+	}
+	if(!(SiInitialize = (si_init_func)GetProcAddress(siappdll, "SiInitialize"))) return;
+	if(!(SiTerminate = (si_term_func)GetProcAddress(siappdll, "SiTerminate"))) return;
+	if(!(SiOpen = (si_open_func)GetProcAddress(siappdll, "SiOpen"))) return;
+	if(!(SiOpenWinInit = (si_open_win_init_func)GetProcAddress(siappdll, "SiOpenWinInit"))) return;
+	if(!(SiClose = (si_close_func)GetProcAddress(siappdll, "SiClose"))) return;
+	if(!(SiGetEvent = (si_getevent_func)GetProcAddress(siappdll, "SiGetEvent"))) return;
+	if(!(SiGetEventWinInit = (si_getev_win_init_func)GetProcAddress(siappdll, "SiGetEventWinInit"))) return;
+
+	SiGetDeviceInfo = (si_get_dev_info_func)GetProcAddress(siappdll, "SiGetDeviceInfo");
+
+	if(SiInitialize() != 0) {
+		return;
+	}
+	SiOpenWinInit(&odat, win);
+	if(!(sidev = SiOpen("miniglut", -1, 0, SI_EVENT, &odat))) {
+		SiTerminate();
+		return;
+	}
+
+	has_sball = 1;
+	if(SiGetDeviceInfo && SiGetDeviceInfo(sidev, &devinfo) == 0) {
+		sball_nbuttons = devinfo.numButtons;
+	} else {
+		sball_nbuttons = 2;
+	}
+}
+
+static void shutdown_sball(void)
+{
+	if(sidev) {
+		SiClose(sidev);
+	}
+	if(siappdll) {
+		FreeLibrary(siappdll);
+	}
+}
+
+static int handle_6dof(MSG* msg)
+{
+	SiSpwEvent siev;
+	SiGetEventData sievdata;
+
+	if(!sidev) return 0;
+
+	SiGetEventWinInit(&sievdata, msg->message, msg->wParam, msg->lParam);
+	if(SiGetEvent(sidev, 0, &sievdata, &siev) != SI_IS_EVENT) {
+		return 0;
+	}
+
+	switch(siev.type) {
+	case SI_MOTION_EVENT:
+		if(cb_sball_motion) {
+			cb_sball_motion(siev.u.spwData.mData[0], siev.u.spwData.mData[1], siev.u.spwData.mData[2]);
+		}
+		if(cb_sball_rotate) {
+			cb_sball_rotate(siev.u.spwData.mData[3], siev.u.spwData.mData[4], siev.u.spwData.mData[5]);
+		}
+		break;
+
+	case SI_BUTTON_EVENT:
+		if(cb_sball_button) {
+			int idx = 0;
+			unsigned long diff = siev.u.spwData.bData.current ^ siev.u.spwData.bData.last;
+			unsigned long bnstate = siev.u.spwData.bData.current;
+			while(diff) {
+				if(diff & 1) {
+					cb_sball_button(idx, bnstate & 1);
+				}
+				diff >>= 1;
+				bnstate >>= 1;
+				idx++;
+			}
+		}
+		break;
+
+	case SI_ZERO_EVENT:
+		if(cb_sball_motion) {
+			cb_sball_motion(0, 0, 0);
+		}
+		if(cb_sball_rotate) {
+			cb_sball_rotate(0, 0, 0);
+		}
+		break;
+
+	default:
+		break;
+	}
+	return 1;
+}
+
+
 #endif	/* BUILD_WIN32 */
 
 #if defined(unix) || defined(__unix__) || defined(__APPLE__)
