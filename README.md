@@ -24,9 +24,12 @@ A second reason to use MiniGLUT is to ease porting of UNIX OpenGL programs to
 Windows, especially when using the microsoft compiler, where setting up and
 linking with a proper 3rd-party library is an ordeal in itself.  Even more so if
 you decide to statically link, at which point you need to deal with the whole
-"MSVC runtime" chaos. Even if you decide to link MiniGLUT as a static library,
-instead of dropping it in your code, it still won't present any MSVC runtime
-compatibility issues, since it doesn't call any C library functions whatsoever.
+"MSVC runtime" chaos.
+
+On GNU/Linux x86/x86-64 and 32bit Windows, MiniGLUT can be compiled to never
+call any C library functions whatsoever (which is the default if you use the
+included makefile/msvc project to build a static library). This is useful to
+avoid dependencies on any specific libc or msvc runtime.
 
 Download
 --------
@@ -50,15 +53,27 @@ When building with MSVC, linking with the correct libraries is taken care by
 pragmas in the header file. If you wish to avoid the winmm dependency, define
 `MINIGLUT_NO_WINMM`.
 
+To disable calling any C library functions, make sure to have `MINIGLUT_NO_LIBC`
+defined when building `miniglut.c`. Either add that to your build system, or
+just modify `miniglut.c` and define it at the top.
+
+> Note: in previous versions (including v0.5), building without libc was the
+> default, and you had to define `MINIGLUT_USE_LIBC` to make it use libc. But
+> it turns out usually when you're building miniglut as part of your project,
+> there's no real downside to using libc in most use cases, so I decided to
+> change the default, and have the extra define go to the static library build
+> files instead of *every* project which drops `miniglut.h`/`miniglut.c` in the
+> source tree.
+
 To avoid calling C library functions, MiniGLUT uses inline assembly code for
-system calls and trigonometric operations. This makes the default build
-incompatible with non-x86 systems, and with MSVC x64 builds. If you don't mind
-linking with the C library, you can define `MINIGLUT_USE_LIBC` to lift these
-limitations.
+system calls and trigonometric operations. This is currently implemented only
+on x86 (32 and 64bit), and only on 32bit when building with MSVC (which doesn't
+support inline assembly on x86-64). For all other systems you need to link with
+libc.
 
 License
 -------
-Copyright (C) 2020-2022 John Tsiombikas <nuclear@member.fsf.org>
+Copyright (C) 2020-2024 John Tsiombikas <nuclear@member.fsf.org>
 
 MiniGLUT is free software. Feel free to use, modify and/or redistribute it,
 under the terms of the GNU General Public License v3, or at your option any
@@ -73,6 +88,19 @@ a way to enable that.
 To learn more about GPL-incompatible free software licenses where this might
 be an issue, see:
 https://www.gnu.org/licenses/license-list.en.html#GPLIncompatibleLicenses
+
+Implementation Notes
+--------------------
+On UNIX systems, spaceball callbacks are supported by talking to a 6dof device
+driver through the *Magellan X11 ClientMessage protocol*. This works with
+either the free software *spacenavd* driver, or the proprietary *3dxsrv*.
+Spacenavd supports all 6dof devices from the first serial ones to current
+models.
+
+On Windows, spaceball support relies on the 3Dconnexion driver and its old
+siapp API. This should work on any version of the driver from very old ones
+running on windows 9x and supporting serial devices, to the latest current
+driver for USB and bluetooth spacemice.
 
 Known Issues
 ------------

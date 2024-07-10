@@ -1,6 +1,6 @@
 /*
 MiniGLUT - minimal GLUT subset without dependencies
-Copyright (C) 2020-2022  John Tsiombikas <nuclear@member.fsf.org>
+Copyright (C) 2020-2024  John Tsiombikas <nuclear@member.fsf.org>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -2109,7 +2109,7 @@ static int handle_6dof(MSG* msg)
 #if defined(unix) || defined(__unix__) || defined(__APPLE__)
 #include <sys/time.h>
 
-#ifdef MINIGLUT_USE_LIBC
+#ifndef MINIGLUT_NO_LIBC
 #define sys_gettimeofday(tv, tz)	gettimeofday(tv, tz)
 #else
 static int sys_gettimeofday(struct timeval *tv, struct timezone *tz);
@@ -2156,7 +2156,7 @@ static void panic(const char *msg)
 }
 
 
-#ifdef MINIGLUT_USE_LIBC
+#ifndef MINIGLUT_NO_LIBC
 #include <stdlib.h>
 #ifdef _WIN32
 #include <io.h>
@@ -2174,7 +2174,7 @@ static int sys_write(int fd, const void *buf, int count)
 	return write(fd, buf, count);
 }
 
-#else	/* !MINIGLUT_USE_LIBC */
+#else	/* MINIGLUT_NO_LIBC */
 
 #ifdef __linux__
 #ifdef __x86_64__
@@ -2247,11 +2247,11 @@ static int sys_write(int fd, const void *buf, int count)
 	return wrsz;
 }
 #endif	/* _WIN32 */
-#endif	/* !MINIGLUT_USE_LIBC */
+#endif	/* MINIGLUT_NO_LIBC */
 
 
 /* ----------------- primitives ------------------ */
-#ifdef MINIGLUT_USE_LIBC
+#ifndef MINIGLUT_NO_LIBC
 #include <stdlib.h>
 #include <math.h>
 
@@ -2266,7 +2266,7 @@ float mglut_atan(float x)
 	return atan(x);
 }
 
-#else	/* !MINIGLUT_USE_LIBC */
+#else	/* MINIGLUT_NO_LIBC */
 
 #ifdef __GNUC__
 void mglut_sincos(float angle, float *sptr, float *cptr)
@@ -2339,7 +2339,7 @@ float mglut_atan(float x)
 	modify [8087];
 #endif	/* __WATCOMC__ */
 
-#endif	/* !MINIGLUT_USE_LIBC */
+#endif	/* MINIGLUT_NO_LIBC */
 
 #define PI	3.1415926536f
 

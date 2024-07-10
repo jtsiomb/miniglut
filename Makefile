@@ -16,15 +16,17 @@ ifeq ($(sys), mingw)
 	alib = libminiglut-w32.a
 	bin = test.exe
 
+	# on windows/mingw we can build without linking to libc
+	CFLAGS += -DMINIGLUT_NO_LIBC
 	LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
 else
 	ifeq ($(sys)-$(isx86), Linux-x86)
-		CFLAGS += -I/usr/X11R6/include
+		# for Linux x86/x86-64 we can build without linking to libc
+		CFLAGS += -I/usr/X11R6/include -DMINIGLUT_NO_LIBC
 		LDFLAGS = -L/usr/X11R6/lib -lX11 -lGL
 	else
 		# for other UNIX or non-x86 where sys_ and trig functions are not
 		# implemented, just use libc
-		CFLAGS += -DMINIGLUT_USE_LIBC
 		LDFLAGS = -lX11 -lGL -lm
 		ifeq ($(sys), IRIX)
 			CC = gcc
