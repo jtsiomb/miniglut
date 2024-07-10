@@ -1964,7 +1964,7 @@ static void get_screen_size(int *scrw, int *scrh)
 
 enum SpwRetVal { SPW_NO_ERROR, SPW_ERROR, SI_BAD_HANDLE, SI_BAD_ID, SI_BAD_VALUE, SI_IS_EVENT };
 typedef enum { SI_BUTTON_EVENT = 1, SI_MOTION_EVENT, SI_COMBO_EVENT, SI_ZERO_EVENT } SiEventType;
-typedef struct { unsigned char whocares[300]; } SiOpenData;
+typedef struct { HWND win; void *transctl; DWORD pid; char exe[MAX_PATH]; int flag; } SiOpenData;
 typedef struct { UINT msg; WPARAM wParam; LPARAM lParam; } SiGetEventData;
 typedef struct { unsigned int last, current, pressed, released; } SiButtonData;
 typedef struct { SiButtonData bData; long mData[6]; long period; } SiSpwData;
@@ -1984,14 +1984,14 @@ typedef struct {
 	} u;
 } SiSpwEvent;
 
-typedef enum SpwRetVal (*si_init_func)(void);
-typedef void (*si_term_func)(void);
-typedef void *(*si_open_func)(char*, int, void*, int, SiOpenData*);
-typedef void (*si_open_win_init_func)(SiOpenData*, HWND);
-typedef enum SpwRetVal (*si_close_func)(void*);
-typedef enum SpwRetVal (*si_get_dev_info_func)(void*, SiDevInfo*);
-typedef enum SpwRetVal (*si_getevent_func)(void*, int, SiGetEventData*, SiSpwEvent*);
-typedef void (*si_getev_win_init_func)(SiGetEventData*, UINT, WPARAM, LPARAM);
+typedef enum SpwRetVal (WINAPI *si_init_func)(void);
+typedef void (WINAPI *si_term_func)(void);
+typedef void *(WINAPI *si_open_func)(char*, int, void*, int, SiOpenData*);
+typedef void (WINAPI *si_open_win_init_func)(SiOpenData*, HWND);
+typedef enum SpwRetVal (WINAPI *si_close_func)(void*);
+typedef enum SpwRetVal (WINAPI *si_get_dev_info_func)(void*, SiDevInfo*);
+typedef enum SpwRetVal (WINAPI *si_getevent_func)(void*, int, SiGetEventData*, SiSpwEvent*);
+typedef void (WINAPI *si_getev_win_init_func)(SiGetEventData*, UINT, WPARAM, LPARAM);
 
 static si_init_func SiInitialize;
 static si_term_func SiTerminate;
