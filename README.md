@@ -91,7 +91,6 @@ Missing GLUT features:
  - Some of the primitives.
  - Buttons and Dials callbacks.
  - Tablet callbacks.
- - Spaceball callbacks are only implemented on UNIX/X11.
  - Timer callback.
 
 Missing FreeGLUT features:

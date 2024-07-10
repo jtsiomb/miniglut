@@ -255,9 +255,9 @@ void motion(int x, int y)
 
 void sball_motion(int x, int y, int z)
 {
-	torus_pos[0] += x * 0.001f;
-	torus_pos[1] += y * 0.001f;
-	torus_pos[2] -= z * 0.001f;
+	torus_pos[0] += x * 0.0001f;
+	torus_pos[1] += y * 0.0001f;
+	torus_pos[2] -= z * 0.0001f;
 	glutPostRedisplay();
 }
 
@@ -281,7 +281,7 @@ void sball_rotate(int rx, int ry, int rz)
 {
 	if(rx | ry | rz) {
 		float s = (float)rsqrt(rx * rx + ry * ry + rz * rz);
-		qrotate(torus_rot, 0.001f / s, rx * s, ry * s, -rz * s);
+		qrotate(torus_rot, 0.0001f / s, rx * s, ry * s, -rz * s);
 		glutPostRedisplay();
 	}
 }
