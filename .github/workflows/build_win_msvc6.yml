@@ -43,7 +43,7 @@ jobs:
         msdev test.dsp /MAKE "test - Win32 Release"
         copy Release\test.exe miniglut-win32-msvc
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: miniglut-win32-msvc
         path: miniglut-win32-msvc

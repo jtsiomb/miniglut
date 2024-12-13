@@ -29,7 +29,7 @@ jobs:
         cp libminiglut-w32.a miniglut-win32-mingw/libminiglut.a
         cp test.exe miniglut-win32-mingw
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: miniglut-win32-mingw
         path: miniglut-win32-mingw
