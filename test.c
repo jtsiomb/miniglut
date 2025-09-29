@@ -18,6 +18,7 @@ static const char *helptext[] = {
 void idle(void);
 void display(void);
 void print_help(void);
+void font_test(void);
 void reshape(int x, int y);
 void keypress(unsigned char key, int x, int y);
 void skeypress(int key, int x, int y);
@@ -37,7 +38,7 @@ int win_width, win_height;
 float cam_theta, cam_phi = 25, cam_dist = 8;
 int mouse_x, mouse_y;
 int bnstate[8];
-int anim, help;
+int anim, help, showfonts;
 float torus_pos[3], torus_rot[4] = {0, 0, 0, 1};
 int teapot, torus, cone, sphere;
 long nframes;
@@ -177,6 +178,7 @@ void display(void)
 	glVertex3f(-5, -1.3, -5);
 	glEnd();
 
+	font_test();
 	print_help();
 
 	glutSwapBuffers();
@@ -213,6 +215,84 @@ void print_help(void)
 		s = text[i];
 		while(*s) {
 			glutBitmapCharacter(GLUT_BITMAP_9_BY_15, *s++);
+		}
+	}
+
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+
+	glPopAttrib();
+}
+
+void font_test(void)
+{
+	int x, y, ymax, i, j, font, len;
+	static const char *text[] = {
+		"A ","GLUT_BITMAP_9_BY_15"," brown fox jumped over the lazy dog",
+		"A quick ","GLUT_BIRMAP_9_BY_13"," fox jumped over the lazy dog",
+		"A quick brown ","GLUT_BITMAP_TIMES_ROMAN_10"," jumped over the lazy dog",
+		"A quick brown fox ","GLUT_BITMAP_TIMES_ROMAN_24"," over the lazy dog",
+		"A quick brown fox jumped ","GLUT_BITMAP_HELVETICA_10"," the lazy dog",
+		"A quick brown fox jumped over ","GLUT_BITMAP_HELVETICA_12"," lazy dog",
+		"A quick brown fox jumped over the ","GLUT_BITMAP_HELVETICA_18"," dog"
+	};
+	const char **str = text;
+
+	glPushAttrib(GL_ENABLE_BIT);
+	glDisable(GL_LIGHTING);
+	glDisable(GL_DEPTH_TEST);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glOrtho(0, win_width, 0, win_height, -1, 1);
+
+	if(!showfonts) {
+		const char *s = "Press F2 for font test";
+		x = win_width - glutBitmapLength(GLUT_BITMAP_9_BY_15, s) - 10;
+		for(i=0; i<2; i++) {
+			glColor3f(0, i ? 0.9 : 0.1, 0);
+			glRasterPos2i(x - i * 2, win_height - 20 + i * 2);
+			glutBitmapString(GLUT_BITMAP_9_BY_15, s);
+		}
+
+	} else {
+
+		y = win_height / 2;
+		ymax = y;
+		for(i=0; i<7; i++) {
+			font = GLUT_BITMAP_9_BY_15 + i;
+			ymax -= glutBitmapHeight(font) + 10;
+		}
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glColor4f(0, 0, 0, 0.7);
+		glRectf(0, ymax - 10, win_width, y);
+		glDisable(GL_BLEND);
+
+		for(i=0; i<7; i++) {
+			font = GLUT_BITMAP_9_BY_15 + i;
+			y -= glutBitmapHeight(font) + 10;
+
+			len = 0;
+			for(j=0; j<3; j++) {
+				len += glutBitmapLength(font, str[j]);
+			}
+			x = (win_width - len) / 2;
+
+			for(j=0; j<3; j++) {
+				if(j & 1) {
+					glColor3f(1.0, 0.3, 0.28);
+				} else {
+					glColor3f(0.3, 0.6, 1.0);
+				}
+				glRasterPos2f(x, y);
+				x += glutBitmapLength(font, *str);
+				glutBitmapString(font, *str++);
+			}
 		}
 	}
 
@@ -288,6 +368,12 @@ void skeypress(int key, int x, int y)
 	case GLUT_KEY_F1:
 		help ^= 1;
 		glutPostRedisplay();
+		break;
+
+	case GLUT_KEY_F2:
+		showfonts ^= 1;
+		glutPostRedisplay();
+		break;
 
 	default:
 		break;
