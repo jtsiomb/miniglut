@@ -1228,13 +1228,13 @@ static int init_bmfont(struct font *fnt, int fidx)
 {
 	int i;
 	static const char *fntdef[] = {0, 0,
-		"-*-courier-medium-r-*-*-14-*-*-*-*-*-*-*",		/* 9x15 */
-		"-*-courier-medium-r-*-*-12-*-*-*-*-*-*-*",		/* 8x13 */
-		"-*-times-medium-r-*-*-10-*-*-*-*-*-*-*",		/* times roman 10 */
-		"-*-times-medium-r-*-*-24-*-*-*-*-*-*-*",		/* times roman 24 */
-		"-*-helvetica-medium-r-*-*-10-*-*-*-*-*-*-*",	/* helvetica 10 */
-		"-*-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*",	/* helvetica 10 */
-		"-*-helvetica-medium-r-*-*-18-*-*-*-*-*-*-*"	/* helvetica 10 */
+		"-*-fixed-medium-r-normal-*-15-*-*-*-*-*-*-*",		/* 9x15 */
+		"-*-fixed-medium-r-normal-*-13-*-*-*-*-*-*-*",		/* 8x13 */
+		"-*-times-medium-r-normal-*-10-*-*-*-*-*-*-*",		/* times roman 10 */
+		"-*-times-medium-r-normal-*-24-*-*-*-*-*-*-*",		/* times roman 24 */
+		"-*-helvetica-medium-r-normal-*-10-*-*-*-*-*-*-*",	/* helvetica 10 */
+		"-*-helvetica-medium-r-normal-*-12-*-*-*-*-*-*-*",	/* helvetica 10 */
+		"-*-helvetica-medium-r-normal-*-18-*-*-*-*-*-*-*"	/* helvetica 10 */
 	};
 	XFontStruct *fs;
 
