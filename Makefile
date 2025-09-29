@@ -5,43 +5,14 @@ otest = test.o
 alib = libminiglut.a
 bin = test
 
-CFLAGS = -pedantic -Wall -g
-
-isx86 ?= $(shell uname -m | sed 's/x86_64/x86/; s/i.86/x86/')
-
-sys ?= $(shell uname -s | sed 's/MINGW.*/mingw/; s/IRIX.*/IRIX/')
-ifeq ($(sys), mingw)
-	olib = miniglut.w32.o
-	otest = test.w32.o
-	alib = libminiglut-w32.a
-	bin = test.exe
-
-	# on windows/mingw we can build without linking to libc
-	CFLAGS += -DMINIGLUT_NO_LIBC
-	LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
-else
-	ifeq ($(sys)-$(isx86), Linux-x86)
-		# for Linux x86/x86-64 we can build without linking to libc
-		CFLAGS += -I/usr/X11R6/include -DMINIGLUT_NO_LIBC
-		LDFLAGS = -L/usr/X11R6/lib -lX11 -lGL
-	else
-		# for other UNIX or non-x86 where sys_ and trig functions are not
-		# implemented, just use libc
-		LDFLAGS = -lX11 -lGL -lm
-		ifeq ($(sys), IRIX)
-			CC = gcc
-		endif
-	endif
-endif
+CFLAGS = -O3 -g3
+LDFLAGS = -lGL -lX11 -lm
 
 $(bin): $(otest) $(alib)
 	$(CC) -o $@ $(otest) $(alib) $(LDFLAGS)
 
 $(alib): $(olib)
 	$(AR) rcs $@ $(olib)
-
-%.w32.o: %.c
-	$(CC) -o $@ $(CFLAGS) -c $<
 
 .PHONY: clean
 clean:
@@ -57,11 +28,3 @@ install: $(alib)
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/include/miniglut.h
 	rm -f $(DESTDIR)$(PREFIX)/lib/libminiglut.a
-
-.PHONY: cross
-cross:
-	$(MAKE) CC=i686-w64-mingw32-gcc sys=mingw
-
-.PHONY: cross-clean
-cross-clean:
-	$(MAKE) CC=i686-w64-mingw32-gcc sys=mingw clean
