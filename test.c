@@ -3,10 +3,24 @@
 #include <math.h>
 #include "miniglut.h"
 
+static const char *helpprompt[] = {"Press F1 for help", 0};
+static const char *helptext[] = {
+	"Rotate: left mouse drag",
+	" Scale: right mouse drag up/down",
+	"   Pan: middle mouse drag",
+	"",
+	"Toggle fullscreen: f",
+	"Toggle animation: space",
+	"Quit: escape",
+	0
+};
+
 void idle(void);
 void display(void);
+void print_help(void);
 void reshape(int x, int y);
 void keypress(unsigned char key, int x, int y);
+void skeypress(int key, int x, int y);
 void mouse(int bn, int st, int x, int y);
 void motion(int x, int y);
 void sball_motion(int x, int y, int z);
@@ -19,11 +33,11 @@ static void qrotation(float *q, float angle, float x, float y, float z);
 static void qrotate(float *q, float angle, float x, float y, float z);
 static void mrotation_quat(float *m, const float *q);
 
-
+int win_width, win_height;
 float cam_theta, cam_phi = 25, cam_dist = 8;
 int mouse_x, mouse_y;
 int bnstate[8];
-int anim;
+int anim, help;
 float torus_pos[3], torus_rot[4] = {0, 0, 0, 1};
 int teapot, torus, cone, sphere;
 long nframes;
@@ -60,6 +74,7 @@ int main(int argc, char **argv)
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
 	glutKeyboardFunc(keypress);
+	glutSpecialFunc(skeypress);
 	glutMouseFunc(mouse);
 	glutMotionFunc(motion);
 	glutSpaceballMotionFunc(sball_motion);
@@ -162,15 +177,60 @@ void display(void)
 	glVertex3f(-5, -1.3, -5);
 	glEnd();
 
+	print_help();
+
 	glutSwapBuffers();
 	nframes++;
+}
+
+void print_help(void)
+{
+	int i;
+	const char *s, **text;
+
+	glPushAttrib(GL_ENABLE_BIT);
+	glDisable(GL_LIGHTING);
+	glDisable(GL_DEPTH_TEST);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glOrtho(0, win_width, 0, win_height, -1, 1);
+
+	text = help ? helptext : helpprompt;
+
+	for(i=0; text[i]; i++) {
+		glColor3f(0, 0.1, 0);
+		glRasterPos2f(7, win_height - (i + 1) * 20 - 2);
+		s = text[i];
+		while(*s) {
+			glutBitmapCharacter(GLUT_BITMAP_9_BY_15, *s++);
+		}
+		glColor3f(0, 0.9, 0);
+		glRasterPos2f(5, win_height - (i + 1) * 20);
+		s = text[i];
+		while(*s) {
+			glutBitmapCharacter(GLUT_BITMAP_9_BY_15, *s++);
+		}
+	}
+
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+
+	glPopAttrib();
 }
 
 #define ZNEAR	0.5f
 void reshape(int x, int y)
 {
 	float vsz, aspect = (float)x / (float)y;
+	win_width = x;
+	win_height = y;
+
 	glViewport(0, 0, x, y);
+
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	vsz = 0.4663f * ZNEAR;
@@ -218,6 +278,18 @@ void keypress(unsigned char key, int x, int y)
 		} else {
 			glutReshapeWindow(prev_xsz, prev_ysz);
 		}
+		break;
+	}
+}
+
+void skeypress(int key, int x, int y)
+{
+	switch(key) {
+	case GLUT_KEY_F1:
+		help ^= 1;
+		glutPostRedisplay();
+
+	default:
 		break;
 	}
 }

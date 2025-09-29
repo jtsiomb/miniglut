@@ -143,6 +143,18 @@ enum {
 };
 #define GLUT_KEY_REPEAT_DEFAULT GLUT_KEY_REPEAT_ON
 
+enum {
+	GLUT_STROKE_ROMAN,
+	GLUT_STROKE_MONO_ROMAN,
+	GLUT_BITMAP_9_BY_15,
+	GLUT_BITMAP_8_BY_13,
+	GLUT_BITMAP_TIMES_ROMAN_10,
+	GLUT_BITMAP_TIMES_ROMAN_24,
+	GLUT_BITMAP_HELVETICA_10,
+	GLUT_BITMAP_HELVETICA_12,
+	GLUT_BITMAP_HELVETICA_18
+};
+
 typedef void (*glut_cb)(void);
 typedef void (*glut_cb_reshape)(int x, int y);
 typedef void (*glut_cb_state)(int state);
@@ -213,6 +225,20 @@ void glutSolidTorus(float inner_rad, float outer_rad, int sides, int rings);
 void glutWireTorus(float inner_rad, float outer_rad, int sides, int rings);
 void glutSolidTeapot(float size);
 void glutWireTeapot(float size);
+
+void glutBitmapCharacter(int fidx, int c);
+void glutBitmapString(int fidx, const char *str);
+int glutBitmapWidth(int fidx, int c);
+int glutBitmapLength(int fidx, const char *str);
+int glutBitmapHeight(int fidx);
+
+void glutStrokeCharacter(int fidx, int c);
+void glutStrokeString(int fidx, const char *str);
+int glutStrokeWidth(int fidx, int c);
+float glutStrokeWidthf(int fidx, int c);
+int glutStrokeLength(int fidx, const char *str);
+float glutStrokeLengthf(int fidx, const char *str);
+float glutStrokeHeight(int fidx);
 
 #ifdef __cplusplus
 }	/* extern "C" */

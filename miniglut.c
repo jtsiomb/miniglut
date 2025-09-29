@@ -80,6 +80,13 @@ struct ctx_info {
 	int srgb;
 };
 
+#define NUM_GLYPHS	96
+
+struct font {
+	int listbase;
+	int height, width[NUM_GLYPHS];
+};
+
 static void cleanup(void);
 static void create_window(const char *title);
 static void get_window_pos(int *x, int *y);
@@ -87,6 +94,7 @@ static void get_window_size(int *w, int *h);
 static void get_screen_size(int *scrw, int *scrh);
 
 static long get_msec(void);
+static void print(const char *msg);
 static void panic(const char *msg);
 static void sys_exit(int status);
 static int sys_write(int fd, const void *buf, int count);
@@ -121,8 +129,14 @@ static int modstate;
 
 static int has_sball, sball_nbuttons;
 
+#define NUM_FONTS	9	/* must match GLUT_STROKE_*|GLUT_BITMAP_* enum size */
+static struct font fonts[NUM_FONTS];
+
+
 void glutInit(int *argc, char **argv)
 {
+	int i;
+
 #ifdef BUILD_X11
 	Pixmap blankpix = 0;
 	XColor xcol;
@@ -176,6 +190,10 @@ void glutInit(int *argc, char **argv)
 		init_y >>= 3;
 	}
 #endif
+
+	for(i=0; i<NUM_FONTS; i++) {
+		fonts[i].listbase = -1;	/* mark un-initialized */
+	}
 }
 
 void glutInitWindowPosition(int x, int y)
@@ -988,8 +1006,12 @@ static void create_window(const char *title)
 	}
 
 	if(!(ctx = glXCreateContext(dpy, vi, 0, True))) {
-		XFree(vi);
-		panic("Failed to create OpenGL context\n");
+		if(!(ctx = glXCreateContext(dpy, vi, 0, False))) {
+			XFree(vi);
+			panic("Failed to create OpenGL context\n");
+		} else {
+			print("Failed to create direct rendering context, fallback to indirect\n");
+		}
 	}
 
 	glXGetConfig(dpy, vi, GLX_RED_SIZE, &ctx_info.rsize);
@@ -1202,7 +1224,42 @@ static int catch_badwin(Display *dpy, XErrorEvent *err)
 	return 0;
 }
 
+static int init_bmfont(struct font *fnt, int fidx)
+{
+	int i;
+	static const char *fntdef[] = {0, 0,
+		"-*-courier-medium-r-*-*-14-*-*-*-*-*-*-*",		/* 9x15 */
+		"-*-courier-medium-r-*-*-12-*-*-*-*-*-*-*",		/* 8x13 */
+		"-*-times-medium-r-*-*-10-*-*-*-*-*-*-*",		/* times roman 10 */
+		"-*-times-medium-r-*-*-24-*-*-*-*-*-*-*",		/* times roman 24 */
+		"-*-helvetica-medium-r-*-*-10-*-*-*-*-*-*-*",	/* helvetica 10 */
+		"-*-helvetica-medium-r-*-*-12-*-*-*-*-*-*-*",	/* helvetica 10 */
+		"-*-helvetica-medium-r-*-*-18-*-*-*-*-*-*-*"	/* helvetica 10 */
+	};
+	XFontStruct *fs;
 
+	if(!(fs = XLoadQueryFont(dpy, fntdef[fidx]))) {
+		return -1;
+	}
+
+	fnt->height = fs->descent + fs->ascent;
+
+	for(i=0; i<NUM_GLYPHS; i++) {
+		XCharStruct *cs;
+		unsigned int c = i + 32;
+		unsigned int first = fs->min_char_or_byte2;
+		if(c < first || c > fs->max_char_or_byte2) {
+			cs = fs->per_char + fs->default_char - first;
+		} else {
+			cs = fs->per_char + c - first;
+		}
+		fnt->width[i] = cs->width;
+	}
+
+	fnt->listbase = glGenLists(NUM_GLYPHS);
+	glXUseXFont(fs->fid, 32, NUM_GLYPHS, fnt->listbase);
+	return 0;
+}
 
 #endif	/* BUILD_X11 */
 
@@ -2103,6 +2160,10 @@ static int handle_6dof(MSG* msg)
 	return 1;
 }
 
+static int init_bmfont(struct font *fnt, int fidx)
+{
+	return -1;	/* TODO */
+}
 
 #endif	/* BUILD_WIN32 */
 
@@ -2147,11 +2208,16 @@ static long get_msec(void)
 }
 #endif
 
-static void panic(const char *msg)
+static void print(const char *msg)
 {
 	const char *end = msg;
 	while(*end) end++;
 	sys_write(2, msg, end - msg);
+}
+
+static void panic(const char *msg)
+{
+	print(msg);
 	sys_exit(1);
 }
 
@@ -2852,4 +2918,71 @@ static void draw_patch(int *index, int flip, float scale)
 	}
 
 	glEnd();
+}
+
+#define BMFONT_FIRST	GLUT_BITMAP_9_BY_15
+
+void glutBitmapCharacter(int fidx, int c)
+{
+	struct font *fnt = fonts + fidx;
+
+	if(fidx < BMFONT_FIRST || fidx >= NUM_FONTS) {
+		return;
+	}
+	if(fnt->listbase < 0) {
+		if(init_bmfont(fnt, fidx) == -1) {
+			return;
+		}
+	}
+
+	if(c < 32 || c >= 128) c = 32;
+	glCallList(fnt->listbase + c - 32);
+}
+
+void glutBitmapString(int fidx, const char *str)
+{
+	while(*str) {
+		glutBitmapCharacter(fidx, *str++);
+	}
+}
+
+int glutBitmapWidth(int fidx, int c)
+{
+	struct font *fnt = fonts + fidx;
+
+	if(fidx < BMFONT_FIRST || fidx >= NUM_FONTS) {
+		return 0;
+	}
+	if(fnt->listbase < 0) {
+		if(init_bmfont(fnt, fidx) == -1) {
+			return 0;
+		}
+	}
+
+	if(c < 32 || c >= 128) c = 32;
+	return fnt->width[c - 32];
+}
+
+int glutBitmapLength(int fidx, const char *str)
+{
+	int len = 0;
+	while(*str) {
+		len += glutBitmapWidth(fidx, *str++);
+	}
+	return len;
+}
+
+int glutBitmapHeight(int fidx)
+{
+	struct font *fnt = fonts + fidx;
+
+	if(fidx < BMFONT_FIRST || fidx >= NUM_FONTS) {
+		return 0;
+	}
+	if(fnt->listbase < 0) {
+		if(init_bmfont(fnt, fidx) == -1) {
+			return 0;
+		}
+	}
+	return fnt->height;
 }
