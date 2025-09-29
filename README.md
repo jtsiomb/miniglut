@@ -115,7 +115,8 @@ Missing GLUT features:
  - Overlays.
  - Game mode (video mode switching).
  - Menus.
- - Font rendering.
+ - Stroke fonts.
+ - Bitmap fonts are currently not available on Windows.
  - Some of the primitives.
  - Buttons and Dials callbacks.
  - Tablet callbacks.
