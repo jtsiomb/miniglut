@@ -1516,8 +1516,11 @@ void glutSetKeyRepeat(int repmode)
 #define WGL_SAMPLE_BUFFERS_ARB				0x2041
 #define WGL_SAMPLES_ARB						0x2042
 
-static PROC wglChoosePixelFormat;
-static PROC wglGetPixelFormatAttribiv;
+typedef BOOL (WINAPI *wgl_choosepixfmt_func)(HDC hdc, const int*, const float*, unsigned int, int*, unsigned int*);
+typedef BOOL (WINAPI *wgl_getpixfmtattriv_func)(HDC, int, int, unsigned int, const int*, int*);
+
+static wgl_choosepixfmt_func wglChoosePixelFormat;
+static wgl_getpixfmtattriv_func wglGetPixelFormatAttribiv;
 
 #define ATTR(a, v) \
 	do { *aptr++ = (a); *aptr++ = (v); } while(0)
@@ -1622,15 +1625,15 @@ static int create_window_wglext(const char *title, int width, int height)
 	}
 	wglMakeCurrent(tmpdc, tmpctx);
 
-	if(!(wglChoosePixelFormat = wglGetProcAddress("wglChoosePixelFormatARB"))) {
-		if(!(wglChoosePixelFormat = wglGetProcAddress("wglChoosePixelFormatEXT"))) {
+	if(!(wglChoosePixelFormat = (wgl_choosepixfmt_func)wglGetProcAddress("wglChoosePixelFormatARB"))) {
+		if(!(wglChoosePixelFormat = (wgl_choosepixfmt_func)wglGetProcAddress("wglChoosePixelFormatEXT"))) {
 			goto fail;
 		}
-		if(!(wglGetPixelFormatAttribiv = wglGetProcAddress("wglGetPixelFormatAttribivEXT"))) {
+		if(!(wglGetPixelFormatAttribiv = (wgl_getpixfmtattriv_func)wglGetProcAddress("wglGetPixelFormatAttribivEXT"))) {
 			goto fail;
 		}
 	} else {
-		if(!(wglGetPixelFormatAttribiv = wglGetProcAddress("wglGetPixelFormatAttribivARB"))) {
+		if(!(wglGetPixelFormatAttribiv = (wgl_getpixfmtattriv_func)wglGetProcAddress("wglGetPixelFormatAttribivARB"))) {
 			goto fail;
 		}
 	}
