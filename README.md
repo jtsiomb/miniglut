@@ -15,21 +15,25 @@ You can use MiniGLUT by simply dropping two files: `miniglut.h` and `miniglut.c`
 into your project source tree, or by building MiniGLUT as a static library and
 linking with it.
 
-MiniGLUT does not intend to replace a full GLUT library, like FreeGLUT, for
-hacking small to medium OpenGL programs. The purpose of MiniGLUT is to
-potentially replace a full GLUT library when it's time for release, in order to
-minimize runtime dependencies of the resulting binary.
-
-A second reason to use MiniGLUT is to ease porting of UNIX OpenGL programs to
-Windows, especially when using the microsoft compiler, where setting up and
-linking with a proper 3rd-party library is an ordeal in itself.  Even more so if
-you decide to statically link, at which point you need to deal with the whole
-"MSVC runtime" chaos.
-
 On GNU/Linux x86/x86-64 and 32bit Windows, MiniGLUT can be compiled to never
 call any C library functions whatsoever (which is the default if you use the
 included makefile/msvc project to build a static library). This is useful to
 avoid dependencies on any specific libc or msvc runtime.
+
+Reasons to use MiniGLUT over a more complete implementation like freeglut:
+
+  - ease of project setup: on some systems it's much harder to install freeglut
+    and direct your toolchain on where to find it, than it is to just drop a
+    couple of files in your project.
+
+  - easier portability: instead of having to install a version of GLUT on every
+    new system, just by transferring your source code you already have it.
+
+  - avoiding runtime library conflicts: the option to build miniglut to never
+    call the C library, can be useful in avoiding MSVC runtime conflicts on
+    windows, or dependency to versioned glibc symbols on GNU, that limit
+    compatibility with older systems.
+
 
 Download
 --------
@@ -73,7 +77,7 @@ libc.
 
 License
 -------
-Copyright (C) 2020-2024 John Tsiombikas <nuclear@member.fsf.org>
+Copyright (C) 2020-2025 John Tsiombikas <nuclear@mutantstargoat.org>
 
 MiniGLUT is free software. Feel free to use, modify and/or redistribute it,
 under the terms of the GNU General Public License v3, or at your option any
@@ -131,8 +135,8 @@ Missing FreeGLUT features:
  - Joystick callbacks.
  - More missing primitives.
 
-If wish to let me know how much you need one of the missing features, or even
-better if you are volunteering to implement it yourself, send me an email at:
-nuclear@member.fsf.org
+If youwish to let me know how much you need one of the missing features, or
+even better if you are volunteering to implement it yourself, send me an email
+at: nuclear@mutantstargoat.com
 
 Only plain-text emails, hard-wrapped at 72 columns will be accepted.
