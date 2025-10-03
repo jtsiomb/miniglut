@@ -2942,11 +2942,26 @@ void glutBitmapCharacter(int fidx, int c)
 	glCallList(fnt->listbase + c - 32);
 }
 
+static int mglut_strlen(const char *s)
+{
+	int len = 0;
+	while(*s++) len++;
+	return len;
+}
+
 void glutBitmapString(int fidx, const char *str)
 {
-	while(*str) {
-		glutBitmapCharacter(fidx, *str++);
+	int prev_base;
+	struct font *fnt = fonts + fidx;
+
+	if(fidx < BMFONT_FIRST || fidx >= NUM_FONTS) {
+		return;
 	}
+
+	glGetIntegerv(GL_LIST_BASE, &prev_base);
+	glListBase(fnt->listbase - 32);
+	glCallLists(mglut_strlen(str), GL_UNSIGNED_BYTE, str);
+	glListBase(prev_base);
 }
 
 int glutBitmapWidth(int fidx, int c)
