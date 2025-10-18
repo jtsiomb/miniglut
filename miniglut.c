@@ -1977,7 +1977,7 @@ static int translate_vkey(int vkey)
 	if(vkey >= 'A' && vkey <= 'Z') {
 		vkey += 32;
 	} else if(vkey >= VK_F1 && vkey <= VK_F12) {
-		vkey -= VK_F1 + GLUT_KEY_F1;
+		vkey += GLUT_KEY_F1 - VK_F1;
 	}
 
 	return vkey;
@@ -2165,7 +2165,34 @@ static int handle_6dof(MSG* msg)
 
 static int init_bmfont(struct font *fnt, int fidx)
 {
-	return -1;	/* TODO */
+	static const unsigned int fntfam[] = {
+		0, 0,
+		FF_MODERN | FIXED_PITCH, FF_MODERN | FIXED_PITCH,
+		FF_ROMAN | VARIABLE_PITCH, FF_ROMAN | VARIABLE_PITCH,
+		FF_SWISS | VARIABLE_PITCH, FF_SWISS | VARIABLE_PITCH, FF_SWISS | VARIABLE_PITCH
+	};
+	static int fntsize[] = {0, 0, 15, 13, 10, 24, 10, 12, 18};
+	LOGFONT lf = {0};
+	TEXTMETRIC tm;
+	HFONT hfont;
+
+	lf.lfPitchAndFamily = fntfam[fidx];
+	lf.lfHeight = fntsize[fidx];
+	lf.lfQuality = PROOF_QUALITY;
+
+	if(!(hfont = CreateFontIndirect(&lf))) {
+		return -1;
+	}
+	SelectObject(dc, hfont);
+
+	GetTextMetrics(dc, &tm);
+	fnt->height = tm.tmHeight;
+
+	GetCharWidth(dc, 32, 32 + NUM_GLYPHS, fnt->width);
+
+	fnt->listbase = glGenLists(NUM_GLYPHS);
+	wglUseFontBitmaps(dc, 32, NUM_GLYPHS, fnt->listbase);
+	return 0;
 }
 
 #endif	/* BUILD_WIN32 */
