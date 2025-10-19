@@ -1,13 +1,20 @@
-obj = test.obj miniglut.obj
+libobj = miniglut.obj
+testobj = test.obj
+alib = miniglut.lib
 bin = test.exe
 
 CC = cl
 LD = link
-CFLAGS = -Zi
-LDFLAGS = user32.lib gdi32.lib opengl32.lib
+AR = lib
 
-$(bin): $(obj)
-	$(LD) -out:$@ $(obj) $(LDFLAGS)
+CFLAGS = -nologo -Zi
+LDFLAGS = $(alib) user32.lib gdi32.lib opengl32.lib winmm.lib
+
+$(bin): $(testobj) $(alib)
+	$(LD) -nologo -out:$@ $(testobj) $(LDFLAGS)
+
+$(alib): $(libobj)
+	$(AR) -nologo -out:$@ $(libobj)
 
 clean:
-	del $(obj) $(bin)
+	del $(libobj) $(testobj) $(bin) $(alib)
