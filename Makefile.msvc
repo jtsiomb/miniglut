@@ -1,0 +1,13 @@
+obj = test.obj miniglut.obj
+bin = test.exe
+
+CC = cl
+LD = link
+CFLAGS = -Zi
+LDFLAGS = user32.lib gdi32.lib opengl32.lib
+
+$(bin): $(obj)
+	$(LD) -out:$@ $(obj) $(LDFLAGS)
+
+clean:
+	del $(obj) $(bin)
