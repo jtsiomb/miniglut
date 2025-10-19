@@ -229,7 +229,7 @@ void font_test(void)
 	int x, y, ymax, i, j, font, len;
 	static const char *text[] = {
 		"A ","GLUT_BITMAP_9_BY_15"," brown fox jumped over the lazy dog",
-		"A quick ","GLUT_BIRMAP_9_BY_13"," fox jumped over the lazy dog",
+		"A quick ","GLUT_BITMAP_8_BY_13"," fox jumped over the lazy dog",
 		"A quick brown ","GLUT_BITMAP_TIMES_ROMAN_10"," jumped over the lazy dog",
 		"A quick brown fox ","GLUT_BITMAP_TIMES_ROMAN_24"," over the lazy dog",
 		"A quick brown fox jumped ","GLUT_BITMAP_HELVETICA_10"," the lazy dog",
