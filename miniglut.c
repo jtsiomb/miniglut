@@ -92,6 +92,7 @@ static void create_window(const char *title);
 static void get_window_pos(int *x, int *y);
 static void get_window_size(int *w, int *h);
 static void get_screen_size(int *scrw, int *scrh);
+static int wsys_extension_supported(char *ext);
 
 static long get_msec(void);
 static void print(const char *msg);
@@ -131,6 +132,8 @@ static int has_sball, sball_nbuttons;
 
 #define NUM_FONTS	9	/* must match GLUT_STROKE_*|GLUT_BITMAP_* enum size */
 static struct font fonts[NUM_FONTS];
+
+static int have_swap_control_tear;
 
 
 void glutInit(int *argc, char **argv)
@@ -461,28 +464,33 @@ static const char *skip_space(const char *s)
 	return s;
 }
 
-int glutExtensionSupported(char *ext)
+int match_ext(const char *extlist, const char *name)
 {
-	const char *str, *eptr;
+	const char *eptr;
 
-	if(!(str = (const char*)glGetString(GL_EXTENSIONS))) {
-		return 0;
-	}
-
-	while(*str) {
-		str = skip_space(str);
-		eptr = skip_space(ext);
-		while(*str && !is_space(*str) && *eptr && *str == *eptr) {
-			str++;
+	while(*extlist) {
+		extlist = skip_space(extlist);
+		eptr = skip_space(name);
+		while(*extlist && !is_space(*extlist) && *eptr && *extlist == *eptr) {
+			extlist++;
 			eptr++;
 		}
-		if((!*str || is_space(*str)) && !*eptr) {
+		if((!*extlist || is_space(*extlist)) && !*eptr) {
 			return 1;
 		}
-		while(*str && !is_space(*str)) str++;
+		while(*extlist && !is_space(*extlist)) extlist++;
 	}
-
 	return 0;
+}
+
+int glutExtensionSupported(char *ext)
+{
+	const char *str;
+
+	if((str = (const char*)glGetString(GL_EXTENSIONS)) && match_ext(str, ext)) {
+		return 1;
+	}
+	return wsys_extension_supported(ext);
 }
 
 
@@ -520,6 +528,14 @@ static void handle_event(XEvent *ev);
 static int spnav_window(Window win);
 static int spnav_event(const XEvent *xev, union spnav_event *event);
 static int spnav_remove_events(int type);
+
+typedef void (*glx_swap_interval_ext_func)(Display*, GLXDrawable, int);
+typedef int (*glx_swap_interval_mesa_func)(unsigned int);
+typedef int (*glx_swap_interval_sgi_func)(int);
+
+static glx_swap_interval_ext_func glx_swap_interval_ext;
+static glx_swap_interval_mesa_func glx_swap_interval_mesa;
+static glx_swap_interval_sgi_func glx_swap_interval_sgi;
 
 
 void glutMainLoopEvent(void)
@@ -927,6 +943,20 @@ void glutSetKeyRepeat(int repmode)
 	}
 }
 
+void glutSwapInterval(int n)
+{
+	if(n < 0 && !have_swap_control_tear) {
+		n = -n;
+	}
+	if(glx_swap_interval_ext) {
+		glx_swap_interval_ext(dpy, win, n);
+	} else if(glx_swap_interval_mesa) {
+		glx_swap_interval_mesa(n);
+	} else if(glx_swap_interval_sgi) {
+		glx_swap_interval_sgi(n < 1 ? 1 : n);
+	}
+}
+
 static XVisualInfo *choose_visual(unsigned int mode)
 {
 	XVisualInfo *vi;
@@ -1054,6 +1084,18 @@ static void create_window(const char *title)
 	XMapWindow(dpy, win);
 
 	glXMakeCurrent(dpy, win, ctx);
+
+#ifdef GLX_VERSION_1_4
+	glx_swap_interval_ext = (glx_swap_interval_ext_func)glXGetProcAddress((unsigned char*)"glXSwapIntervalEXT");
+	glx_swap_interval_mesa = (glx_swap_interval_mesa_func)glXGetProcAddress((unsigned char*)"glXSwapIntervalMESA");
+	glx_swap_interval_sgi = (glx_swap_interval_sgi_func)glXGetProcAddress((unsigned char*)"glXSwapIntervalSGI");
+#elif defined(__sgi)
+	glx_swap_interval_sgi = glXSwapIntervalSGI;
+#endif
+
+	if(glx_swap_interval_ext) {
+		have_swap_control_tear = glutExtensionSupported("GLX_EXT_swap_control_tear");
+	}
 }
 
 static void get_window_pos(int *x, int *y)
@@ -1078,6 +1120,16 @@ static void get_screen_size(int *scrw, int *scrh)
 	*scrh = wattr.height;
 }
 
+static int wsys_extension_supported(char *ext)
+{
+#ifdef GLX_VERSION_1_1
+	const char *str = glXQueryExtensionsString(dpy, scr);
+	if(str && match_ext(str, ext)) {
+		return 1;
+	}
+#endif
+	return 0;
+}
 
 /* spaceball */
 enum {
@@ -1274,6 +1326,9 @@ static int handle_6dof(MSG *msg);
 static void update_modkeys(void);
 static int translate_vkey(int vkey);
 static void handle_mbutton(int bn, int st, WPARAM wparam, LPARAM lparam);
+
+typedef BOOL (WINAPI *wgl_swap_interval_func)(int);
+static wgl_swap_interval_func wgl_swap_interval;
 
 #ifdef MINIGLUT_WINMAIN
 int WINAPI WinMain(HINSTANCE hinst, HINSTANCE hprev, char *cmdline, int showcmd)
@@ -1491,6 +1546,14 @@ float glutGetColor(int idx, int comp)
 
 void glutSetKeyRepeat(int repmode)
 {
+}
+
+void glutSwapInterval(int n)
+{
+	if(n < 0 && !have_swap_control_tear) {
+		n = -n;
+	}
+	wgl_swap_interval(n);
 }
 
 #define WGL_DRAW_TO_WINDOW	0x2001
@@ -1809,6 +1872,10 @@ ctxdone:
 		}
 	}
 
+	if((wgl_swap_interval = (wgl_swap_interval_func)wglGetProcAddress("wglSwapIntervalEXT"))) {
+		have_swap_control_tear = glutExtensionSupported("WGL_EXT_swap_control_tear");
+	}
+
 	init_sball();
 
 	upd_pending = 1;
@@ -2018,6 +2085,25 @@ static void get_screen_size(int *scrw, int *scrh)
 	*scrh = GetSystemMetrics(SM_CYSCREEN);
 }
 
+typedef const char *(*wgl_getextstr_func)(void);
+
+static int wsys_extension_supported(char *ext)
+{
+	static wgl_getextstr_func wgl_getextstr;
+	const char *str;
+
+	if(!wgl_getextstr) {
+		if(!(wgl_getextstr = (wgl_getextstr_func)wglGetProcAddress("wglGetExtensionsStringEXT"))) {
+			return 0;
+		}
+	}
+
+	if((str = wgl_getextstr()) && match_ext(str, ext)) {
+		return 1;
+	}
+	return 0;
+}
+
 
 /* ---- 3DxWare SDK stuff for spaceballs ---- */
 #define SI_EVENT	1
@@ -2219,7 +2305,7 @@ static long get_msec(void)
 	return (tv.tv_sec - tv0.tv_sec) * 1000 + (tv.tv_usec - tv0.tv_usec) / 1000;
 }
 #endif	/* UNIX */
-#ifdef _WIN32
+#ifdef BUILD_WIN32
 static long get_msec(void)
 {
 	static long t0;
@@ -2254,7 +2340,7 @@ static void panic(const char *msg)
 
 #ifndef MINIGLUT_NO_LIBC
 #include <stdlib.h>
-#ifdef _WIN32
+#ifdef BUILD_WIN32
 #include <io.h>
 #else
 #include <unistd.h>
@@ -2327,7 +2413,7 @@ static int sys_gettimeofday(struct timeval *tv, struct timezone *tz)
 #endif	/* __i386__ */
 #endif	/* __linux__ */
 
-#ifdef _WIN32
+#ifdef BUILD_WIN32
 static void sys_exit(int status)
 {
 	ExitProcess(status);

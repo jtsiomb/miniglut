@@ -240,6 +240,8 @@ int glutStrokeLength(int fidx, const char *str);
 float glutStrokeLengthf(int fidx, const char *str);
 float glutStrokeHeight(int fidx);
 
+void glutSwapInterval(int n);
+
 #ifdef __cplusplus
 }	/* extern "C" */
 #endif
