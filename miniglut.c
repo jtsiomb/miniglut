@@ -92,7 +92,7 @@ static void create_window(const char *title);
 static void get_window_pos(int *x, int *y);
 static void get_window_size(int *w, int *h);
 static void get_screen_size(int *scrw, int *scrh);
-static int wsys_extension_supported(char *ext);
+static int wsys_extension_supported(const char *ext);
 
 static long get_msec(void);
 static void print(const char *msg);
@@ -483,7 +483,7 @@ int match_ext(const char *extlist, const char *name)
 	return 0;
 }
 
-int glutExtensionSupported(char *ext)
+int glutExtensionSupported(const char *ext)
 {
 	const char *str;
 
@@ -1120,7 +1120,7 @@ static void get_screen_size(int *scrw, int *scrh)
 	*scrh = wattr.height;
 }
 
-static int wsys_extension_supported(char *ext)
+static int wsys_extension_supported(const char *ext)
 {
 #ifdef GLX_VERSION_1_1
 	const char *str = glXQueryExtensionsString(dpy, scr);
@@ -1553,7 +1553,9 @@ void glutSwapInterval(int n)
 	if(n < 0 && !have_swap_control_tear) {
 		n = -n;
 	}
-	wgl_swap_interval(n);
+	if(wgl_swap_interval) {
+		wgl_swap_interval(n);
+	}
 }
 
 #define WGL_DRAW_TO_WINDOW	0x2001
@@ -2087,7 +2089,7 @@ static void get_screen_size(int *scrw, int *scrh)
 
 typedef const char *(*wgl_getextstr_func)(void);
 
-static int wsys_extension_supported(char *ext)
+static int wsys_extension_supported(const char *ext)
 {
 	static wgl_getextstr_func wgl_getextstr;
 	const char *str;

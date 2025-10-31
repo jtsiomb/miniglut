@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include "miniglut.h"
+#include "../miniglut.h"
 
 static const char *helpprompt[] = {"Press F1 for help", 0};
 static const char *helptext[] = {

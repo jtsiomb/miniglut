@@ -1,24 +1,19 @@
 PREFIX = /usr/local
 
 olib = miniglut.o
-otest = test.o
 alib = libminiglut.a
-bin = test
+tests = 3dview vsync
 
-CFLAGS = -pedantic -Wall -g
+CFLAGS = -O3 -g3
 
 isx86 ?= $(shell uname -m | sed 's/x86_64/x86/; s/i.86/x86/')
 
 sys ?= $(shell uname -s | sed 's/MINGW.*/mingw/; s/IRIX.*/IRIX/')
 ifeq ($(sys), mingw)
-	olib = miniglut.w32.o
-	otest = test.w32.o
-	alib = libminiglut-w32.a
-	bin = test.exe
-
 	# on windows/mingw we can build without linking to libc
 	CFLAGS += -DMINIGLUT_NO_LIBC
 	LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
+	tests = 3dview.exe vsync.exe
 else
 	ifeq ($(sys)-$(isx86), Linux-x86)
 		# for Linux x86/x86-64 we can build without linking to libc
@@ -28,27 +23,24 @@ else
 		# for other UNIX or non-x86 where sys_ and trig functions are not
 		# implemented, just use libc
 		LDFLAGS = -lX11 -lGL -lm
-		ifeq ($(sys), IRIX)
-			CC = gcc
-		endif
 	endif
 endif
 
-$(bin): $(otest) $(alib)
-	$(CC) -o $@ $(otest) $(alib) $(LDFLAGS)
+.PHONY: all
+all: $(alib) $(tests)
+
+3dview: tests/3dview.o $(alib)
+	$(CC) -o $@ $< $(alib) $(LDFLAGS)
 
 vsync: tests/vsync.o $(alib)
-	$(CC) -o $@ $< $(alib) $(LDFLAGS) -lm
+	$(CC) -o $@ $< $(alib) $(LDFLAGS)
 
 $(alib): $(olib)
 	$(AR) rcs $@ $(olib)
 
-%.w32.o: %.c
-	$(CC) -o $@ $(CFLAGS) -c $<
-
 .PHONY: clean
 clean:
-	rm -f $(alib) $(olib) $(otest) $(bin)
+	rm -f $(alib) $(olib) $(tests) tests/*.o
 
 .PHONY: install
 install: $(alib)

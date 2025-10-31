@@ -1,24 +1,24 @@
-# Microsoft Developer Studio Project File - Name="test" - Package Owner=<4>
+# Microsoft Developer Studio Project File - Name="vsync" - Package Owner=<4>
 # Microsoft Developer Studio Generated Build File, Format Version 6.00
 # ** DO NOT EDIT **
 
 # TARGTYPE "Win32 (x86) Console Application" 0x0103
 
-CFG=test - Win32 Debug
+CFG=vsync - Win32 Debug
 !MESSAGE This is not a valid makefile. To build this project using NMAKE,
 !MESSAGE use the Export Makefile command and run
 !MESSAGE 
-!MESSAGE NMAKE /f "test.mak".
+!MESSAGE NMAKE /f "vsync.mak".
 !MESSAGE 
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "test.mak" CFG="test - Win32 Debug"
+!MESSAGE NMAKE /f "vsync.mak" CFG="vsync - Win32 Debug"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
-!MESSAGE "test - Win32 Release" (based on "Win32 (x86) Console Application")
-!MESSAGE "test - Win32 Debug" (based on "Win32 (x86) Console Application")
+!MESSAGE "vsync - Win32 Release" (based on "Win32 (x86) Console Application")
+!MESSAGE "vsync - Win32 Debug" (based on "Win32 (x86) Console Application")
 !MESSAGE 
 
 # Begin Project
@@ -28,7 +28,7 @@ CFG=test - Win32 Debug
 CPP=cl.exe
 RSC=rc.exe
 
-!IF  "$(CFG)" == "test - Win32 Release"
+!IF  "$(CFG)" == "vsync - Win32 Release"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 0
@@ -52,7 +52,7 @@ LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
 # ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib miniglut.lib /nologo /subsystem:console /machine:I386 /libpath:"Release"
 
-!ELSEIF  "$(CFG)" == "test - Win32 Debug"
+!ELSEIF  "$(CFG)" == "vsync - Win32 Debug"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 1
@@ -80,14 +80,14 @@ LINK32=link.exe
 
 # Begin Target
 
-# Name "test - Win32 Release"
-# Name "test - Win32 Debug"
+# Name "vsync - Win32 Release"
+# Name "vsync - Win32 Debug"
 # Begin Group "src"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
-SOURCE=test.c
+SOURCE=tests\vsync.c
 # End Source File
 # End Group
 # End Target

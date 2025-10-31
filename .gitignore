@@ -1,8 +1,8 @@
 *.o
 *.d
 *.swp
-test
-test.exe
+3dview
+vsync
 Debug/
 Release/
 *.obj
@@ -12,3 +12,8 @@ Release/
 *.plg
 *.a
 *.lib
+*.exe
+*.json
+prebuilt/
+.cache/
+*.png

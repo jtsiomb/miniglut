@@ -1,22 +1,30 @@
 PREFIX = /usr/local
 
 olib = miniglut.o
-otest = test.o
 alib = libminiglut.a
-bin = test
+tests = 3dview vsync
 
 CFLAGS = -O3 -g3
 LDFLAGS = -lGL -lX11 -lm
 
-$(bin): $(otest) $(alib)
-	$(CC) -o $@ $(otest) $(alib) $(LDFLAGS)
+.PHONY: all
+all: $(alib) $(tests)
+
+3dview: tests/3dview.o $(alib)
+	$(CC) -o $@ tests/3dview.o $(alib) $(LDFLAGS)
+
+vsync: tests/vsync.o $(alib)
+	$(CC) -o $@ tests/vsync.o $(alib) $(LDFLAGS)
 
 $(alib): $(olib)
 	$(AR) rcs $@ $(olib)
 
+.c.o:
+	$(CC) -o $@ $(CFLAGS) -c $<
+
 .PHONY: clean
 clean:
-	rm -f $(alib) $(olib) $(otest) $(bin)
+	rm -f $(alib) $(olib) $(tests) tests/*.o
 
 .PHONY: install
 install: $(alib)

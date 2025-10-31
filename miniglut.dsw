@@ -15,7 +15,22 @@ Package=<4>
 
 ###############################################################################
 
-Project: "test"=.\test.dsp - Package Owner=<4>
+Project: "3dview"=.\3dview.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name miniglut
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "vsync"=.\vsync.dsp - Package Owner=<4>
 
 Package=<5>
 {{{

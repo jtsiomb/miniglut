@@ -212,7 +212,7 @@ void glutSpaceballButtonFunc(glut_cb_sbbutton func);
 
 int glutGet(unsigned int s);
 int glutGetModifiers(void);
-int glutExtensionSupported(char *ext);
+int glutExtensionSupported(const char *ext);
 
 void glutSolidSphere(float rad, int slices, int stacks);
 void glutWireSphere(float rad, int slices, int stacks);

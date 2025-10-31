@@ -1,20 +1,26 @@
 libobj = miniglut.obj
-testobj = test.obj
 alib = miniglut.lib
-bin = test.exe
 
 CC = cl
 LD = link
 AR = lib
 
-CFLAGS = -nologo -Zi
+CFLAGS = -nologo -Zi -O2
 LDFLAGS = $(alib) user32.lib gdi32.lib opengl32.lib winmm.lib
 
-$(bin): $(testobj) $(alib)
-	$(LD) -nologo -out:$@ $(testobj) $(LDFLAGS)
+all: 3dview.exe vsync.exe
 
 $(alib): $(libobj)
 	$(AR) -nologo -out:$@ $(libobj)
 
+3dview.exe: tests\3dview.obj $(alib)
+	$(LD) -nologo -out:$@ tests\3dview.obj $(LDFLAGS)
+
+vsync.exe: tests\vsync.obj $(alib)
+	$(LD) -nologo -out:$@ tests\vsync.obj $(LDFLAGS)
+
+.c.obj:
+	$(CC) -Fo$@ $(CFLAGS) -c $<
+
 clean:
-	del $(libobj) $(testobj) $(bin) $(alib)
+	del $(libobj) tests\*.obj *.exe $(alib)
