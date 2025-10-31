@@ -3070,6 +3070,11 @@ void glutBitmapString(int fidx, const char *str)
 	if(fidx < BMFONT_FIRST || fidx >= NUM_FONTS) {
 		return;
 	}
+	if(fnt->listbase < 0) {
+		if(init_bmfont(fnt, fidx) == -1) {
+			return;
+		}
+	}
 
 	glGetIntegerv(GL_LIST_BASE, &prev_base);
 	glListBase(fnt->listbase - 32);
