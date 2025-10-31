@@ -37,6 +37,9 @@ endif
 $(bin): $(otest) $(alib)
 	$(CC) -o $@ $(otest) $(alib) $(LDFLAGS)
 
+vsync: tests/vsync.o $(alib)
+	$(CC) -o $@ $< $(alib) $(LDFLAGS) -lm
+
 $(alib): $(olib)
 	$(AR) rcs $@ $(olib)
 
