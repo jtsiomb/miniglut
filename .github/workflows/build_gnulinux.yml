@@ -25,7 +25,7 @@ jobs:
       run: |
         mkdir miniglut-gnulinux64
         cp libminiglut.a miniglut-gnulinux64
-        cp test miniglut-gnulinux64
+        cp 3dview vsync miniglut-gnulinux64
 
     - uses: actions/upload-artifact@v4
       with:

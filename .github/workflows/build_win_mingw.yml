@@ -27,7 +27,7 @@ jobs:
       run: |
         mkdir miniglut-win32-mingw
         cp libminiglut-w32.a miniglut-win32-mingw/libminiglut.a
-        cp test.exe miniglut-win32-mingw
+        cp 3dview.exe vsync.exe miniglut-win32-mingw
 
     - uses: actions/upload-artifact@v4
       with:

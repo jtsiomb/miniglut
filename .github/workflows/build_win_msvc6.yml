@@ -41,7 +41,8 @@ jobs:
       run: |
         call vc6fullvarsgh.bat
         msdev test.dsp /MAKE "test - Win32 Release"
-        copy Release\test.exe miniglut-win32-msvc
+        copy Release\3dview.exe miniglut-win32-msvc
+        copy Release\vsync.exe miniglut-win32-msvc
 
     - uses: actions/upload-artifact@v4
       with:
