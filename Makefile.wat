@@ -1,5 +1,5 @@
-obj = test.obj miniglut.obj
-bin = test.exe
+obj = tests/3dview.obj miniglut.obj
+bin = 3dview.exe
 
 CC = wcc386
 LD = wlink
@@ -8,6 +8,8 @@ LDFLAGS = system nt library { opengl32 winmm }
 
 $(bin): $(obj)
 	$(LD) name $@ debug all file { $(obj) } $(LDFLAGS)
+
+.c: .;tests
 
 .c.obj: .autodepend
 	$(CC) -fo=$@ $(CFLAGS) $[*
