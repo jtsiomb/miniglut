@@ -1,6 +1,6 @@
 /*
 MiniGLUT - minimal GLUT subset without dependencies
-Copyright (C) 2020-2024  John Tsiombikas <nuclear@member.fsf.org>
+Copyright (C) 2020-2026  John Tsiombikas <nuclear@mutantstargoat.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

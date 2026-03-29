@@ -1,6 +1,6 @@
 /*
 MiniGLUT - minimal GLUT subset without dependencies
-Copyright (C) 2020-2024  John Tsiombikas <nuclear@member.fsf.org>
+Copyright (C) 2020-2026  John Tsiombikas <nuclear@mutantstargoat.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -31,8 +31,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB	0x20b2
 #endif
 
-static Display *dpy;
-static Window win, root;
+Display *miniglut_dpy;
+Window miniglut_win;
+#define dpy		miniglut_dpy
+#define win		miniglut_win
+
+static Window root;
 static Colormap cmap;
 static int cmap_size;
 static int scr;
@@ -464,7 +468,7 @@ static const char *skip_space(const char *s)
 	return s;
 }
 
-int match_ext(const char *extlist, const char *name)
+static int match_ext(const char *extlist, const char *name)
 {
 	const char *eptr;
 
