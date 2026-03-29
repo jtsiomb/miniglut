@@ -2,7 +2,8 @@ PREFIX = /usr/local
 
 olib = miniglut.o
 alib = libminiglut.a
-tests = 3dview vsync
+bin_3dview = 3dview
+bin_vsync = vsync
 
 CFLAGS = -O3 -g3
 
@@ -13,7 +14,8 @@ ifeq ($(sys), mingw)
 	# on windows/mingw we can build without linking to libc
 	CFLAGS += -DMINIGLUT_NO_LIBC
 	LDFLAGS = -mconsole -lopengl32 -lgdi32 -lwinmm
-	tests = 3dview.exe vsync.exe
+	bin_3dview = 3dview.exe
+	bin_vsync = vsync.exe
 else
 	ifeq ($(sys)-$(isx86), Linux-x86)
 		# for Linux x86/x86-64 we can build without linking to libc
@@ -26,13 +28,16 @@ else
 	endif
 endif
 
+tests = $(bin_3dview) $(bin_vsync)
+
+
 .PHONY: all
 all: $(alib) $(tests)
 
-3dview: tests/3dview.o $(alib)
+$(bin_3dview): tests/3dview.o $(alib)
 	$(CC) -o $@ $< $(alib) $(LDFLAGS)
 
-vsync: tests/vsync.o $(alib)
+$(bin_vsync): tests/vsync.o $(alib)
 	$(CC) -o $@ $< $(alib) $(LDFLAGS)
 
 $(alib): $(olib)

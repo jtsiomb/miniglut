@@ -40,7 +40,8 @@ jobs:
       shell: cmd
       run: |
         call vc6fullvarsgh.bat
-        msdev test.dsp /MAKE "test - Win32 Release"
+        msdev 3dview.dsp /MAKE "test - Win32 Release"
+        msdev vsync.dsp /MAKE "test - Win32 Release"
         copy Release\3dview.exe miniglut-win32-msvc
         copy Release\vsync.exe miniglut-win32-msvc
 

@@ -419,7 +419,7 @@ void sball_motion(int x, int y, int z)
 	glutPostRedisplay();
 }
 
-static float rsqrt(float number)
+static float mglut_rsqrt(float number)
 {
 	int i;
 	float x2, y;
@@ -438,7 +438,7 @@ static float rsqrt(float number)
 void sball_rotate(int rx, int ry, int rz)
 {
 	if(rx | ry | rz) {
-		float s = (float)rsqrt(rx * rx + ry * ry + rz * rz);
+		float s = (float)mglut_rsqrt(rx * rx + ry * ry + rz * rz);
 		qrotate(torus_rot, 0.001f / s, rx * s, ry * s, -rz * s);
 		glutPostRedisplay();
 	}
