@@ -1317,6 +1317,11 @@ static int init_bmfont(struct font *fnt, int fidx)
 	return 0;
 }
 
+glut_glfunc_type glutGetProcAddress(const char *name)
+{
+	return (glut_glfunc_type)glXGetProcAddress((const unsigned char*)name);
+}
+
 #endif	/* BUILD_X11 */
 
 
@@ -2285,6 +2290,11 @@ static int init_bmfont(struct font *fnt, int fidx)
 	fnt->listbase = glGenLists(NUM_GLYPHS);
 	wglUseFontBitmaps(dc, 32, NUM_GLYPHS, fnt->listbase);
 	return 0;
+}
+
+glut_glfunc_type glutGetProcAddress(const char *name)
+{
+	return (glut_glfunc_type)wglGetProcAddress(name);
 }
 
 #endif	/* BUILD_WIN32 */

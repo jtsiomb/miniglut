@@ -214,6 +214,9 @@ int glutGet(unsigned int s);
 int glutGetModifiers(void);
 int glutExtensionSupported(const char *ext);
 
+typedef void (*glut_glfunc_type)();
+glut_glfunc_type glutGetProcAddress(const char *name);
+
 void glutSolidSphere(float rad, int slices, int stacks);
 void glutWireSphere(float rad, int slices, int stacks);
 void glutSolidCube(float sz);
