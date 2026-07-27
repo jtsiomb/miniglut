@@ -2021,13 +2021,17 @@ static void update_modkeys(void)
 }
 
 #ifndef VK_OEM_1
-#define VK_OEM_1	0xba
-#define VK_OEM_2	0xbf
-#define VK_OEM_3	0xc0
-#define VK_OEM_4	0xdb
-#define VK_OEM_5	0xdc
-#define VK_OEM_6	0xdd
-#define VK_OEM_7	0xde
+#define VK_OEM_1		0xba
+#define VK_OEM_PLUS		0xbb
+#define VK_OEM_COMMA	0xbc
+#define VK_OEM_MINUS	0xbd
+#define VK_OEM_PERIOD	0xbe
+#define VK_OEM_2		0xbf
+#define VK_OEM_3		0xc0
+#define VK_OEM_4		0xdb
+#define VK_OEM_5		0xdc
+#define VK_OEM_6		0xdd
+#define VK_OEM_7		0xde
 #endif
 
 static int translate_vkey(int vkey)
@@ -2048,6 +2052,10 @@ static int translate_vkey(int vkey)
 	case VK_OEM_5: return '\\';
 	case VK_OEM_6: return ']';
 	case VK_OEM_7: return '\'';
+	case VK_OEM_PLUS: return '=';
+	case VK_OEM_MINUS: return '-';
+	case VK_OEM_COMMA: return ',';
+	case VK_OEM_PERIOD: return '.';
 	default:
 		break;
 	}
