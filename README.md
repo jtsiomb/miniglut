@@ -37,9 +37,9 @@ Reasons to use MiniGLUT over a more complete implementation like freeglut:
 
 Download
 --------
-Latest release (v0.5):
-  - https://github.com/jtsiomb/miniglut/releases/download/v0.5/miniglut-0.5.tar.gz
-  - https://github.com/jtsiomb/miniglut/releases/download/v0.5/miniglut-0.5.zip
+Latest release (v0.6):
+  - https://github.com/jtsiomb/miniglut/releases/download/v0.6/miniglut-0.6.tar.gz
+  - https://github.com/jtsiomb/miniglut/releases/download/v0.6/miniglut-0.6.zip
 
 Both archives are identical, choose whichever is more convenient.
 
@@ -77,7 +77,7 @@ libc.
 
 License
 -------
-Copyright (C) 2020-2025 John Tsiombikas <nuclear@mutantstargoat.org>
+Copyright (C) 2020-2026 John Tsiombikas <nuclear@mutantstargoat.org>
 
 MiniGLUT is free software. Feel free to use, modify and/or redistribute it,
 under the terms of the GNU General Public License v3, or at your option any
@@ -134,7 +134,7 @@ Missing FreeGLUT features:
  - Joystick callbacks.
  - More missing primitives.
 
-If youwish to let me know how much you need one of the missing features, or
+If you wish to let me know how much you need one of the missing features, or
 even better if you are volunteering to implement it yourself, send me an email
 at: nuclear@mutantstargoat.com
 

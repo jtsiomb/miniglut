@@ -3,6 +3,7 @@
 *.swp
 3dview
 vsync
+keyb
 Debug/
 Release/
 *.obj
