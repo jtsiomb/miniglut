@@ -4,6 +4,7 @@ olib = miniglut.o
 alib = libminiglut.a
 bin_3dview = 3dview
 bin_vsync = vsync
+bin_keyb = keyb
 
 CFLAGS = -O3 -g3
 
@@ -28,7 +29,7 @@ else
 	endif
 endif
 
-tests = $(bin_3dview) $(bin_vsync)
+tests = $(bin_3dview) $(bin_vsync) $(bin_keyb)
 
 
 .PHONY: all
@@ -38,6 +39,9 @@ $(bin_3dview): tests/3dview.o $(alib)
 	$(CC) -o $@ $< $(alib) $(LDFLAGS)
 
 $(bin_vsync): tests/vsync.o $(alib)
+	$(CC) -o $@ $< $(alib) $(LDFLAGS)
+
+$(bin_keyb): tests/keyb.o $(alib)
 	$(CC) -o $@ $< $(alib) $(LDFLAGS)
 
 $(alib): $(olib)

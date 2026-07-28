@@ -109,16 +109,18 @@ enum {
 };
 
 enum {
-	GLUT_KEY_HOME = 0xff50,
-	GLUT_KEY_LEFT = 0xff51,
+	GLUT_KEY_HOME		= 0xff50,
+	GLUT_KEY_LEFT		= 0xff51,
 	GLUT_KEY_UP,
 	GLUT_KEY_RIGHT,
 	GLUT_KEY_DOWN,
 	GLUT_KEY_PAGE_UP,
 	GLUT_KEY_PAGE_DOWN,
-	GLUT_KEY_END = 0xff57,
-	GLUT_KEY_INSERT = 0xff63,
-	GLUT_KEY_F1 = 0xffbe,
+	GLUT_KEY_END		= 0xff57,
+	GLUT_KEY_INSERT		= 0xff63,
+	GLUT_KEY_DELETE		= 0xffff,
+	GLUT_KEY_NUM_LOCK	= 0xff7f,
+	GLUT_KEY_F1			= 0xffbe,
 	GLUT_KEY_F2,
 	GLUT_KEY_F3,
 	GLUT_KEY_F4,
@@ -129,13 +131,22 @@ enum {
 	GLUT_KEY_F9,
 	GLUT_KEY_F10,
 	GLUT_KEY_F11,
-	GLUT_KEY_F12
+	GLUT_KEY_F12,
+	GLUT_KEY_SHIFT_L	= 0xffe1,
+	GLUT_KEY_SHIFT_R	= 0xffe2,
+	GLUT_KEY_CTRL_L		= 0xffe3,
+	GLUT_KEY_CTRL_R		= 0xffe4,
+	GLUT_KEY_ALT_L		= 0xffe9,
+	GLUT_KEY_ALT_R		= 0xffea,
+	GLUT_KEY_SUPER_L	= 0xffeb,
+	GLUT_KEY_SUPER_R	= 0xffec
 };
 
 /* returned by glutGetModifiers */
 #define GLUT_ACTIVE_SHIFT	1
 #define GLUT_ACTIVE_CTRL	4
 #define GLUT_ACTIVE_ALT		8
+#define GLUT_ACTIVE_SUPER	0x40
 
 enum {
 	GLUT_KEY_REPEAT_OFF,

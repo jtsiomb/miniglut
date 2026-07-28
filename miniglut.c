@@ -597,7 +597,7 @@ static KeySym translate_keysym(KeySym sym)
 	case XK_Return:
 		return '\r';
 	case XK_Delete:
-		return 127;
+		return GLUT_KEY_DELETE;
 	case XK_Tab:
 		return '\t';
 	default:
@@ -677,7 +677,7 @@ static void handle_event(XEvent *ev)
 				}
 			}
 		}
-		modstate = ev->xkey.state & (ShiftMask | ControlMask | Mod1Mask);
+		modstate = ev->xkey.state & (ShiftMask | ControlMask | Mod1Mask | Mod4Mask);
 		if(!(sym = XLookupKeysym(&ev->xkey, 0))) {
 			break;
 		}
@@ -2001,6 +2001,11 @@ static LRESULT CALLBACK handle_message(HWND win, unsigned int msg, WPARAM wparam
 	return 0;
 }
 
+#ifndef VK_LWIN
+#define VK_LWIN	0x5b
+#define VK_RWIN	0x5c
+#endif
+
 static void update_modkeys(void)
 {
 	if(GetKeyState(VK_SHIFT) & 0x8000) {
@@ -2017,6 +2022,11 @@ static void update_modkeys(void)
 		modstate |= GLUT_ACTIVE_ALT;
 	} else {
 		modstate &= ~GLUT_ACTIVE_ALT;
+	}
+	if((GetKeyState(VK_LWIN) | GetKeyState(VK_RWIN)) & 0x8000) {
+		modstate |= GLUT_ACTIVE_SUPER;
+	} else {
+		modstate &= ~GLUT_ACTIVE_SUPER;
 	}
 }
 
@@ -2041,6 +2051,7 @@ static int translate_vkey(int vkey)
 	case VK_NEXT: return GLUT_KEY_PAGE_DOWN;
 	case VK_END: return GLUT_KEY_END;
 	case VK_HOME: return GLUT_KEY_HOME;
+	case VK_DELETE: return GLUT_KEY_DELETE;
 	case VK_LEFT: return GLUT_KEY_LEFT;
 	case VK_UP: return GLUT_KEY_UP;
 	case VK_RIGHT: return GLUT_KEY_RIGHT;
@@ -2056,6 +2067,15 @@ static int translate_vkey(int vkey)
 	case VK_OEM_MINUS: return '-';
 	case VK_OEM_COMMA: return ',';
 	case VK_OEM_PERIOD: return '.';
+	case VK_LSHIFT: return GLUT_KEY_SHIFT_L;
+	case VK_RSHIFT: return GLUT_KEY_SHIFT_R;
+	case VK_LCONTROL: return GLUT_KEY_CTRL_L;
+	case VK_RCONTROL: return GLUT_KEY_CTRL_R;
+	case VK_LMENU: return GLUT_KEY_ALT_L;
+	case VK_RMENU: return GLUT_KEY_ALT_R;
+	case VK_LWIN: return GLUT_KEY_SUPER_L;
+	case VK_RWIN: return GLUT_KEY_SUPER_R;
+	case VK_NUMLOCK: return GLUT_KEY_NUM_LOCK;
 	default:
 		break;
 	}
